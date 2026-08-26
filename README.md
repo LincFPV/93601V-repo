@@ -2,8 +2,9 @@
 ## **What this is**
 This serves as the primary place for coordinating code writing and other files for the team, will be periodically updated with the newest code or whenever I can be bothered to
 ## **What can you find here**
-- drivetrain.v5cpp  --- our primary base code for our robot, runs the drive train, the claw and the (v1) lift
+- drivetrain.v5cpp  --- our primary base code for our robot, runs the drive train, the claw and the (v1) lift (also new V2 lift)
 - auton.v5cpp --- pretty self explanatory now in dev
+- comp.v5cpp --- combine auton/drive code that works with the field controllers and is actually needed for the comp
 
 ## **Auton Logic**
 

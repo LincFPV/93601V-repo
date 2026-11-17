@@ -5,13 +5,14 @@
 /*    Ports (same as XDrive.cpp):                                             */
 /*      Front Left 10, Front Right 20, Back Left 9, Back Right 19             */
 /*      Inertial 12, Radio 11        Drive geared 36:60 (motor:wheel)         */
-/*      Lift 1, 2         Toggle motor 4      Colour sensor 5                 */
+/*      Lift 1, 2         Side toggles: left 3, right 4 (5.5W motors)         */
 /*      Claw piston: 3-wire port A                                            */
 /*                                                                            */
 /*    Driver controls (unchanged):                                            */
 /*      Left stick = drive / strafe      Right stick X = turn                 */
 /*      L1 / L2 = lift up / down         R1 = claw                            */
-/*      R2 = run toggle until the sensor sees YOUR alliance colour            */
+/*      R2 (hold) = spin both side toggles                                    */
+/*      Up arrow (hold) = spin both side toggles the other way                */
 /*      A  = field-centric on/off        B = reset heading                    */
 /*      X + Y together = test-run the selected auton (only works when NOT     */
 /*                       plugged into field control). Down arrow = abort.     */
@@ -24,8 +25,8 @@
 /*    For Autonomous Coding Skills pick the routine "SKILLS 60s".             */
 /*                                                                            */
 /*    HOW TO PLACE THE ROBOT (every routine except TEST):                     */
-/*      Centred on the wall, right under the Toggle, with the toggle          */
-/*      mechanism pointing at the wall and the lift all the way down.         */
+/*      Centred on the wall, right under the Toggle, with the side toggle     */
+/*      picked in AUTON_TOGGLE_ON_RIGHT against the wall and the lift down.   */
 /*      Preload in the claw, yellow end UP. Power on with the lift down       */
 /*      and don't move the robot while the inertial calibrates.               */
 /*                                                                            */
@@ -36,7 +37,8 @@
 /*         distance is wrong fix WHEEL_DIAMETER (or the two SCALE numbers).   */
 /*      2. Drive the lift by hand and read "Lift" on the brain screen to      */
 /*         fill in every H_... height.                                        */
-/*      3. Measure CLAW_REACH, START_WALL_DIST and TOGGLE_MECH_ANGLE.         */
+/*      3. Measure CLAW_REACH and START_WALL_DIST, set AUTON_TOGGLE_ON_RIGHT  */
+/*         and tune TOGGLE_FLIP_DEGREES until one flip lands on your colour.  */
 /*      4. Tune one routine at a time, shortest first.                        */
 /*                                                                            */
 /*    Keep the VEXcode Devices panel EMPTY and do not add "brain Brain;".     */
@@ -66,8 +68,11 @@ motor_group Lift = motor_group(LiftMotorA, LiftMotorB);
 
 digital_out Claw = digital_out(Brain.ThreeWirePort.A);
 
-motor ToggleMotor = motor(PORT4, ratio18_1, false);
-optical ColourSensor = optical(PORT5);
+// Side toggle mechanisms: one 5.5W motor on each side of the robot.
+// (5.5W motors always run at 200 RPM, so ratio18_1 is correct for them.)
+// If one spins the wrong way, flip its true/false.
+motor ToggleLeft  = motor(PORT3, ratio18_1, false);
+motor ToggleRight = motor(PORT4, ratio18_1, true);
 
 /*---------------------------------------------------------------------------*/
 /*                         NUMBERS TO TUNE                                   */
@@ -76,16 +81,11 @@ optical ColourSensor = optical(PORT5);
 // ---- Driver ----
 const int DEADBAND = 5;
 
-// ---- Toggle mechanism ----
-const int TOGGLE_SPEED = 60;            // percent
-const int TOGGLE_TIMEOUT_MS = 3000;     // driver: give up after this long
-const int TOGGLE_AUTON_TIMEOUT_MS = 2500;
-const int TOGGLE_MIN_RUN_MS = 250;      // ignore the sensor at first, so it
-                                        // can't stop on the colour it started on
-const double RED_HUE_BELOW  = 20;       // red is hue < 20 or > 340
-const double RED_HUE_ABOVE  = 340;
-const double BLUE_HUE_ABOVE = 190;      // blue is hue 190..260
-const double BLUE_HUE_BELOW = 260;
+// ---- Side toggles ----
+const int    TOGGLE_SPEED = 100;            // percent (5.5W motors are weak)
+const bool   AUTON_TOGGLE_ON_RIGHT = true;  // which side toggle the autons use
+const double TOGGLE_FLIP_DEGREES = 360;     // motor degrees for one auton flip. TUNE.
+const int    TOGGLE_AUTON_TIMEOUT_MS = 2000;
 
 // ---- Drive base ----
 const double WHEEL_DIAMETER = 3.25;     // inches. MEASURE YOUR WHEELS.
@@ -103,7 +103,7 @@ const double TURN_SIGN   = -1;          // turning is inverted
 // ---- Robot shape (inches / degrees) ----
 // Angles are measured clockwise from the FRONT of the robot, looking down.
 const double CLAW_ANGLE        = 0;     // the claw is on the front
-const double TOGGLE_MECH_ANGLE = 180;   // side the toggle mechanism is on
+const double TOGGLE_MECH_ANGLE = AUTON_TOGGLE_ON_RIGHT ? 90 : 270;  // side put against the wall
 const double CLAW_REACH        = 12;    // robot centre -> middle of the claw
 const double START_WALL_DIST   = 9;     // robot centre -> wall at the start
 const double TOGGLE_WALL_DIST  = 9;     // robot centre -> wall while flipping
@@ -205,8 +205,6 @@ bool selectorDirty = true;
 
 bool fieldCentric = true;
 bool clawClosed = false;
-bool toggleRunning = false;
-int  toggleStartTime = 0;
 double driverZero = 0;          // heading that counts as "away from the driver"
 
 int nowMs() {
@@ -305,7 +303,7 @@ void updateOdometry() {
 }
 
 /*---------------------------------------------------------------------------*/
-/*                          Claw and Toggle                                  */
+/*                       Claw and side toggles                               */
 /*---------------------------------------------------------------------------*/
 void setClaw(bool closed) {
   clawClosed = closed;
@@ -316,46 +314,9 @@ void toggleClaw() {
   setClaw(!clawClosed);
 }
 
-bool seesColour(bool wantBlue) {
-  if (!ColourSensor.isNearObject()) {
-    return false;
-  }
-  double hue = ColourSensor.hue();
-  if (wantBlue) {
-    return hue > BLUE_HUE_ABOVE && hue < BLUE_HUE_BELOW;
-  }
-  return hue < RED_HUE_BELOW || hue > RED_HUE_ABOVE;
-}
-
-void stopToggle() {
-  toggleRunning = false;
-  ToggleMotor.stop(hold);
-}
-
-// R2: start the toggle macro, or cancel it if it's already running.
-void startToggleMacro() {
-  if (toggleRunning) {
-    stopToggle();
-    return;
-  }
-  toggleRunning = true;
-  toggleStartTime = nowMs();
-  ToggleMotor.spin(fwd, TOGGLE_SPEED, percent);
-}
-
-// Called every loop so the toggle runs without freezing the drive.
-void updateToggleMacro() {
-  if (!toggleRunning) {
-    return;
-  }
-  int ran = nowMs() - toggleStartTime;
-  if (ran > TOGGLE_MIN_RUN_MS && seesColour(blueAlliance)) {
-    stopToggle();
-    Controller1.rumble(".");
-  } else if (ran > TOGGLE_TIMEOUT_MS) {
-    stopToggle();
-    Controller1.rumble("--");
-  }
+void stopToggles() {
+  ToggleLeft.stop(hold);
+  ToggleRight.stop(hold);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -487,22 +448,21 @@ void autonClaw(bool closed) {
   setClaw(closed);
 }
 
-// Spin the toggle mechanism until the sensor sees the wanted colour.
-// The robot must already be at the wall. Returns true if the colour was seen.
-bool flipToggle(bool wantBlue) {
-  if (timeLeft() <= 0) return false;
-  bool seen = false;
+// Spin the side toggle that is against the wall by one flip. There is no
+// colour sensor now, so this is a fixed amount: start every run with the
+// field Toggle in the same position and tune TOGGLE_FLIP_DEGREES for it.
+// reverseIt spins the other way (the way that lands on blue instead of red).
+void flipToggle(bool reverseIt) {
+  if (timeLeft() <= 0) return;
+  motor &side = AUTON_TOGGLE_ON_RIGHT ? ToggleRight : ToggleLeft;
+  double startPos = side.position(degrees);
   int start = nowMs();
-  ToggleMotor.spin(fwd, TOGGLE_SPEED, percent);
-  while (nowMs() - start < TOGGLE_AUTON_TIMEOUT_MS && timeLeft() > 0) {
-    if (nowMs() - start > TOGGLE_MIN_RUN_MS && seesColour(wantBlue)) {
-      seen = true;
-      break;
-    }
+  side.spin(reverseIt ? reverse : fwd, TOGGLE_SPEED, percent);
+  while (std::fabs(side.position(degrees) - startPos) < TOGGLE_FLIP_DEGREES &&
+         nowMs() - start < TOGGLE_AUTON_TIMEOUT_MS && timeLeft() > 0) {
     waitMs(10);
   }
-  ToggleMotor.stop(hold);
-  return seen;
+  side.stop(hold);
 }
 
 // Flip the Toggle of the current quadrant, then pull off the wall (a Toggle
@@ -546,7 +506,7 @@ void placeOn(double gx, double gy, double fromDir, double height) {
 
 void finishAuton() {
   stopDrive();
-  ToggleMotor.stop(hold);
+  stopToggles();
   Lift.stop(hold);
 }
 
@@ -785,15 +745,15 @@ void onScreenPressed() {
 }
 
 // Live readout under the selector, for tuning and troubleshooting.
-void showStatus(int r2Presses) {
+void showStatus() {
   Brain.Screen.setPenColor(color::white);
   Brain.Screen.setFillColor(color::black);
   Brain.Screen.printAt(10, 150, true, "X %6.1f  Y %6.1f  Heading %6.1f     ", robotX, robotY, robotHeading());
   Brain.Screen.printAt(10, 175, true, "Lift %5.0f deg   Claw %s     ", LiftMotorA.position(degrees), clawClosed ? "closed" : "open  ");
-  Brain.Screen.printAt(10, 200, true, "Toggle %s  motor4 %s  sensor5 %s   ", toggleRunning ? "RUNNING" : "stopped",
-                       ToggleMotor.installed() ? "ok" : "MISSING", ColourSensor.installed() ? "ok" : "MISSING");
-  Brain.Screen.printAt(10, 225, true, "Hue %3.0f  Near %s  R2 presses %d   ", ColourSensor.hue(),
-                       ColourSensor.isNearObject() ? "yes" : "no ", r2Presses);
+  Brain.Screen.printAt(10, 200, true, "Side toggles: left(3) %s  right(4) %s   ",
+                       ToggleLeft.installed() ? "ok" : "MISSING", ToggleRight.installed() ? "ok" : "MISSING");
+  Brain.Screen.printAt(10, 225, true, "Toggle deg  L %6.0f  R %6.0f      ",
+                       ToggleLeft.position(degrees), ToggleRight.position(degrees));
 }
 
 /*---------------------------------------------------------------------------*/
@@ -802,12 +762,9 @@ void showStatus(int r2Presses) {
 void pre_auton(void) {
   Lift.setStopping(hold);
   Lift.setPosition(0, degrees);       // the lift must be fully down at power-on
-  ToggleMotor.setStopping(hold);
+  ToggleLeft.setStopping(hold);
+  ToggleRight.setStopping(hold);
   setClaw(true);                      // closed, so it keeps hold of the preload
-
-  // Turn on the sensor's light so it reads colour the same in any lighting.
-  ColourSensor.setLight(ledState::on);
-  ColourSensor.setLightPower(100, percent);
 
   Brain.Screen.clearScreen();
   Brain.Screen.printAt(10, 30, true, "Calibrating inertial... don't move!");
@@ -843,11 +800,8 @@ void resetHeading() {
 void usercontrol(void) {
   // Make sure nothing from autonomous is still running.
   autonDeadline = 0;
-  stopToggle();
+  stopToggles();
   showDriveMode();
-
-  bool r2WasPressed = false;
-  int r2Presses = 0;
 
   while (true) {
     updateOdometry();
@@ -861,14 +815,6 @@ void usercontrol(void) {
       autonDeadline = 0;
       selectorDirty = true;
     }
-
-    // R2 is checked here so one press can only ever start or cancel once.
-    bool r2Pressed = Controller1.ButtonR2.pressing();
-    if (r2Pressed && !r2WasPressed) {
-      r2Presses++;
-      startToggleMacro();
-    }
-    r2WasPressed = r2Pressed;
 
     double drive  = applyDeadband(Controller1.Axis3.position());
     double strafe = applyDeadband(Controller1.Axis4.position());
@@ -899,8 +845,20 @@ void usercontrol(void) {
       Lift.stop(hold);
     }
 
-    updateToggleMacro();
-    showStatus(r2Presses);
+    // Side toggles: hold R2 to spin both. Hold the Up arrow to spin both
+    // the other way.
+    if (Controller1.ButtonR2.pressing()) {
+      ToggleLeft.spin(fwd, TOGGLE_SPEED, percent);
+      ToggleRight.spin(fwd, TOGGLE_SPEED, percent);
+    } else if (Controller1.ButtonUp.pressing()) {
+      ToggleLeft.spin(reverse, TOGGLE_SPEED, percent);
+      ToggleRight.spin(reverse, TOGGLE_SPEED, percent);
+    } else {
+      ToggleLeft.stop(hold);
+      ToggleRight.stop(hold);
+    }
+
+    showStatus();
 
     wait(20, msec);
   }

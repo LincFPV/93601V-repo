@@ -23,6 +23,7 @@ Everything known about the robot and its code as of 10 November 2026, so work ca
 
 - **Drive:** X-drive, 4 x 11W V5 motors (44W total), one per wheel.
 - **Lift:** cascade lift, 2 x 11W motors (22W) on ports 1 and 2. (Changed 17 Nov 2026 from 3 motors; port 3 is now free. Turning was also inverted and the drive is geared 36:60. The code copy at the bottom of this file is the older 10 Nov version; use XDrive.cpp.)
+- **Toggles (changed 17 Nov 2026):** the single toggle motor and the colour sensor are gone. There are now two side toggles, one 5.5W motor each: left on port 3, right on port 4. Hold R2 to spin both; hold the Up arrow to spin both the other way. Port 5 is free. The "Active toggle", port table, controls and "toggle does not work" sections below describe the old mechanism.
 - **Claw:** pneumatic, one solenoid.
 - **Active toggle:** one motor, watched by a colour (optical) sensor.
 - **Inertial sensor** for field-centric driving.

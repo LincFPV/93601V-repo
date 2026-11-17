@@ -4,7 +4,7 @@
 /*                                                                            */
 /*    Ports (same as XDrive.cpp):                                             */
 /*      Front Left 10, Front Right 20, Back Left 9, Back Right 19             */
-/*      Inertial 12, Radio 11                                                 */
+/*      Inertial 12, Radio 11        Drive geared 36:60 (motor:wheel)         */
 /*      Lift 1, 2, 3      Toggle motor 4      Colour sensor 5                 */
 /*      Claw piston: 3-wire port A                                            */
 /*                                                                            */
@@ -90,6 +90,10 @@ const double BLUE_HUE_BELOW = 260;
 
 // ---- Drive base ----
 const double WHEEL_DIAMETER = 3.25;     // inches. MEASURE YOUR WHEELS.
+// Drive gearing: a 36-tooth gear on each motor turns a 60-tooth gear on the
+// wheel, so the wheel turns 0.6 times for every motor turn.
+// If it is the other way round (60 on the motor), swap to 60.0 / 36.0.
+const double DRIVE_GEAR_RATIO = 36.0 / 60.0;
 const double FORWARD_SCALE  = 1.0;      // raise if the robot drives short
 const double STRAFE_SCALE   = 1.0;      // raise if the robot strafes short
 // These match the directions the team settled on in driver control.
@@ -289,7 +293,7 @@ void updateOdometry() {
 
   // X-drive wheels sit at 45 degrees, so the robot travels sqrt(2) times
   // as far as each wheel rolls.
-  double inchesPerDegree = M_PI * WHEEL_DIAMETER / 360.0 * 1.41421356;
+  double inchesPerDegree = M_PI * WHEEL_DIAMETER / 360.0 * DRIVE_GEAR_RATIO * 1.41421356;
   double ahead  = DRIVE_SIGN  * (dFL + dFR + dBL + dBR) / 4.0 * inchesPerDegree * FORWARD_SCALE;
   double across = STRAFE_SIGN * (dFL - dFR - dBL + dBR) / 4.0 * inchesPerDegree * STRAFE_SCALE;
 

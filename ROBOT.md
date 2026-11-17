@@ -22,7 +22,7 @@ Everything known about the robot and its code as of 10 November 2026, so work ca
 ## The robot
 
 - **Drive:** X-drive, 4 x 11W V5 motors (44W total), one per wheel.
-- **Lift:** cascade lift, 3 x 11W motors (33W).
+- **Lift:** cascade lift, 2 x 11W motors (22W) on ports 1 and 2. (Changed 17 Nov 2026 from 3 motors; port 3 is now free. Turning was also inverted and the drive is geared 36:60. The code copy at the bottom of this file is the older 10 Nov version; use XDrive.cpp.)
 - **Claw:** pneumatic, one solenoid.
 - **Active toggle:** one motor, watched by a colour (optical) sensor.
 - **Inertial sensor** for field-centric driving.

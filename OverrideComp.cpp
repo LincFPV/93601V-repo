@@ -5,7 +5,7 @@
 /*    Ports (same as XDrive.cpp):                                             */
 /*      Front Left 10, Front Right 20, Back Left 9, Back Right 19             */
 /*      Inertial 12, Radio 11        Drive geared 36:60 (motor:wheel)         */
-/*      Lift 1, 2, 3      Toggle motor 4      Colour sensor 5                 */
+/*      Lift 1, 2         Toggle motor 4      Colour sensor 5                 */
 /*      Claw piston: 3-wire port A                                            */
 /*                                                                            */
 /*    Driver controls (unchanged):                                            */
@@ -59,11 +59,10 @@ motor BackRight  = motor(PORT19, ratio18_1, true);
 
 inertial Inertial = inertial(PORT12);
 
-// 33W cascade lift. If one motor fights the others, flip its true/false.
+// 22W cascade lift (two 11W motors). If they fight each other, flip one true/false.
 motor LiftMotorA = motor(PORT1, ratio18_1, false);
 motor LiftMotorB = motor(PORT2, ratio18_1, true);
-motor LiftMotorC = motor(PORT3, ratio18_1, false);
-motor_group Lift = motor_group(LiftMotorA, LiftMotorB, LiftMotorC);
+motor_group Lift = motor_group(LiftMotorA, LiftMotorB);
 
 digital_out Claw = digital_out(Brain.ThreeWirePort.A);
 
@@ -99,7 +98,7 @@ const double STRAFE_SCALE   = 1.0;      // raise if the robot strafes short
 // These match the directions the team settled on in driver control.
 const double DRIVE_SIGN  = -1;          // forward/back is inverted
 const double STRAFE_SIGN =  1;
-const double TURN_SIGN   =  1;
+const double TURN_SIGN   = -1;          // turning is inverted
 
 // ---- Robot shape (inches / degrees) ----
 // Angles are measured clockwise from the FRONT of the robot, looking down.

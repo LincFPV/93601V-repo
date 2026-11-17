@@ -9,7 +9,7 @@
 /*      Front Right ....... 20                                                */
 /*      Back Left .........  9                                                */
 /*      Back Right ........ 19                                                */
-/*      Lift (3 x 11W) .... 1, 2, 3   <- change these to match your robot     */
+/*      Lift (2 x 11W) .... 1, 2      <- change these to match your robot     */
 /*      Toggle motor ......  4        <- change to match your robot           */
 /*      Colour sensor .....  5        <- change to match your robot           */
 /*      Claw piston ....... 3-wire port A on the brain                        */
@@ -43,12 +43,11 @@ motor BackRight  = motor(PORT19, ratio18_1, true);
 
 inertial Inertial = inertial(PORT12);
 
-// 33W cascade lift: three 11W motors working together.
+// 22W cascade lift: two 11W motors working together.
 // If one motor fights the others, flip its true/false.
 motor LiftMotorA = motor(PORT1, ratio18_1, false);
 motor LiftMotorB = motor(PORT2, ratio18_1, true);
-motor LiftMotorC = motor(PORT3, ratio18_1, false);
-motor_group Lift = motor_group(LiftMotorA, LiftMotorB, LiftMotorC);
+motor_group Lift = motor_group(LiftMotorA, LiftMotorB);
 
 // Pneumatic claw: solenoid plugged into 3-wire port A.
 digital_out Claw = digital_out(Brain.ThreeWirePort.A);
@@ -75,8 +74,9 @@ int applyDeadband(int value) {
 
 // drive, strafe, turn are -100..100 (percent)
 void xDrive(double drive, double strafe, double turn) {
-  // Forward/back is inverted; strafing and turning are not.
+  // Forward/back and turning are inverted; strafing is not.
   drive = -drive;
+  turn = -turn;
 
   double fl = drive + strafe + turn;
   double fr = drive - strafe - turn;

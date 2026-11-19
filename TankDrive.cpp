@@ -1,28 +1,28 @@
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
-/*    Team 93601V - X-Drive (4 x 11W motors)                                  */
+/*    Team 93601V - Tank drive, driver control only (4 x 11W = 44W)           */
+/*    For matches use OverrideComp.v5cpp, which also has the autons.          */
 /*                                                                            */
 /*    Ports:                                                                  */
 /*      Radio (antenna) ... 11  (no code needed, just plug it in)             */
-/*      Inertial .......... 12                                                */
-/*      Front Left ........ 10                                                */
-/*      Front Right ....... 20                                                */
-/*      Back Left .........  9                                                */
-/*      Back Right ........ 19                                                */
-/*      Lift (2 x 11W) .... 1, 2      <- change these to match your robot     */
+/*      Left drive ........ 10 (front), 9 (back)                              */
+/*      Right drive ....... 20 (front), 19 (back)                             */
+/*      Lift (2 x 11W) .... 1, 2                                              */
 /*      Side toggles ...... left 3, right 4 (5.5W motors)                     */
 /*      Claw piston ....... 3-wire port A on the brain                        */
 /*                                                                            */
 /*    Controls:                                                               */
-/*      Left stick Y  = forward / backward                                    */
-/*      Left stick X  = strafe left / right                                   */
-/*      Right stick X = turn                                                  */
-/*      L1 / L2       = lift up / down                                        */
-/*      R1            = open / close claw                                     */
-/*      R2 (hold)       = spin both side toggles                              */
-/*      Up arrow (hold) = spin both side toggles the other way                */
-/*      A             = toggle field-centric / robot-centric                  */
-/*      B             = reset heading (point robot "forward" first)           */
+/*      Left stick up/down  = forward / backward                              */
+/*      Right stick L/R     = turn                                            */
+/*      L1 / L2             = lift up / down                                  */
+/*      R1                  = open / close claw                               */
+/*      R2 (hold)           = spin both side toggles                          */
+/*      Up arrow (hold)     = spin both side toggles the other way            */
+/*                                                                            */
+/*    If the robot drives backwards when you push forward, set DRIVE_SIGN     */
+/*    to -1. If it turns the wrong way, set TURN_SIGN to -1.                  */
+/*                                                                            */
+/*    Keep the VEXcode Devices panel EMPTY and do not add "brain Brain;".     */
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
 
@@ -34,16 +34,17 @@ using namespace vex;
 competition Competition;
 controller Controller1 = controller(primary);
 
-// Right side is reversed so positive power drives every wheel "forward".
+// 44W tank drive: two 11W motors per side.
+// Right side is reversed so positive power drives both sides forward.
 motor FrontLeft  = motor(PORT10, ratio18_1, false);
-motor FrontRight = motor(PORT20, ratio18_1, true);
 motor BackLeft   = motor(PORT9,  ratio18_1, false);
+motor FrontRight = motor(PORT20, ratio18_1, true);
 motor BackRight  = motor(PORT19, ratio18_1, true);
-
-inertial Inertial = inertial(PORT12);
+motor_group LeftDrive  = motor_group(FrontLeft, BackLeft);
+motor_group RightDrive = motor_group(FrontRight, BackRight);
 
 // 22W cascade lift: two 11W motors working together.
-// If one motor fights the others, flip its true/false.
+// If the motors fight each other, flip one true/false.
 motor LiftMotorA = motor(PORT1, ratio18_1, false);
 motor LiftMotorB = motor(PORT2, ratio18_1, true);
 motor_group Lift = motor_group(LiftMotorA, LiftMotorB);
@@ -62,45 +63,38 @@ const int DEADBAND = 5;
 
 const int TOGGLE_SPEED = 100;         // percent (5.5W motors are weak)
 
-bool fieldCentric = true;
+// Flip either of these to -1 if the robot drives or turns the wrong way.
+const double DRIVE_SIGN = 1;
+const double TURN_SIGN  = 1;
+
 bool clawClosed = false;
 
 int applyDeadband(int value) {
   return (std::abs(value) < DEADBAND) ? 0 : value;
 }
 
-// drive, strafe, turn are -100..100 (percent)
-void xDrive(double drive, double strafe, double turn) {
-  // Forward/back is inverted; strafing and turning are not.
-  drive = -drive;
+// forward and turn (clockwise) are -100..100 percent.
+void tankDrive(double forward, double turn) {
+  forward = DRIVE_SIGN * forward;
+  turn    = TURN_SIGN  * turn;
 
-  double fl = drive + strafe + turn;
-  double fr = drive - strafe - turn;
-  double bl = drive - strafe + turn;
-  double br = drive + strafe - turn;
+  double left  = forward + turn;
+  double right = forward - turn;
 
-  // Scale everything down if any wheel is asked for more than 100%
-  // so the robot keeps the right direction at full stick.
-  double maxPower = std::fmax(std::fmax(std::fabs(fl), std::fabs(fr)),
-                              std::fmax(std::fabs(bl), std::fabs(br)));
+  // Scale both sides down together if either is asked for more than 100%.
+  double maxPower = std::fmax(std::fabs(left), std::fabs(right));
   if (maxPower > 100) {
-    fl = fl / maxPower * 100;
-    fr = fr / maxPower * 100;
-    bl = bl / maxPower * 100;
-    br = br / maxPower * 100;
+    left  = left  / maxPower * 100;
+    right = right / maxPower * 100;
   }
 
-  FrontLeft.spin(fwd, fl, percent);
-  FrontRight.spin(fwd, fr, percent);
-  BackLeft.spin(fwd, bl, percent);
-  BackRight.spin(fwd, br, percent);
+  LeftDrive.spin(fwd, left, percent);
+  RightDrive.spin(fwd, right, percent);
 }
 
 void stopDrive() {
-  FrontLeft.stop(brake);
-  FrontRight.stop(brake);
-  BackLeft.stop(brake);
-  BackRight.stop(brake);
+  LeftDrive.stop(brake);
+  RightDrive.stop(brake);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -125,23 +119,16 @@ void pre_auton(void) {
   setClaw(false);
 
   Brain.Screen.clearScreen();
-  Brain.Screen.printAt(10, 30, "Calibrating inertial... don't move!");
-  Inertial.calibrate();
-  while (Inertial.isCalibrating()) {
-    wait(50, msec);
-  }
-  Brain.Screen.clearScreen();
-  Brain.Screen.printAt(10, 30, "93601V ready");
+  Brain.Screen.printAt(10, 30, true, "93601V tank drive ready");
 }
 
 /*---------------------------------------------------------------------------*/
 /*                              Autonomous                                   */
 /*---------------------------------------------------------------------------*/
 void autonomous(void) {
-  // Example: drive forward 1 second, strafe right 1 second, stop.
-  xDrive(50, 0, 0);
-  wait(1000, msec);
-  xDrive(0, 50, 0);
+  // Placeholder: drive forward 1 second, then stop.
+  // The real autons are in OverrideComp.v5cpp.
+  tankDrive(50, 0);
   wait(1000, msec);
   stopDrive();
 }
@@ -149,42 +136,20 @@ void autonomous(void) {
 /*---------------------------------------------------------------------------*/
 /*                              User Control                                 */
 /*---------------------------------------------------------------------------*/
-void toggleFieldCentric() {
-  fieldCentric = !fieldCentric;
-  Controller1.Screen.clearLine(1);
-  Controller1.Screen.setCursor(1, 1);
-  Controller1.Screen.print(fieldCentric ? "Field-centric" : "Robot-centric");
-}
-
-void resetHeading() {
-  Inertial.setHeading(0, degrees);
-  Controller1.rumble(".");
-}
-
 void usercontrol(void) {
   Controller1.Screen.clearScreen();
   Controller1.Screen.setCursor(1, 1);
-  Controller1.Screen.print(fieldCentric ? "Field-centric" : "Robot-centric");
+  Controller1.Screen.print("93601V tank drive");
 
   while (true) {
-    double drive  = applyDeadband(Controller1.Axis3.position());
-    double strafe = applyDeadband(Controller1.Axis4.position());
-    double turn   = applyDeadband(Controller1.Axis1.position());
+    // Arcade: left stick up/down drives, right stick left/right turns.
+    double forward = applyDeadband(Controller1.Axis3.position());
+    double turn    = applyDeadband(Controller1.Axis1.position());
 
-    if (fieldCentric) {
-      // Rotate the joystick input by the robot's heading so "up" on the
-      // stick always drives away from the driver.
-      double headingRad = Inertial.heading(degrees) * M_PI / 180.0;
-      double rotDrive  =  drive * std::cos(headingRad) + strafe * std::sin(headingRad);
-      double rotStrafe = -drive * std::sin(headingRad) + strafe * std::cos(headingRad);
-      drive  = rotDrive;
-      strafe = rotStrafe;
-    }
-
-    if (drive == 0 && strafe == 0 && turn == 0) {
+    if (forward == 0 && turn == 0) {
       stopDrive();
     } else {
-      xDrive(drive, strafe, turn);
+      tankDrive(forward, turn);
     }
 
     // Lift: hold L1 to go up, L2 to go down, holds position when released.
@@ -197,7 +162,7 @@ void usercontrol(void) {
     }
 
     // Side toggles: hold R2 to spin both. Hold the Up arrow to spin both
-    // the other way.
+    // the other way. They stop as soon as you let go.
     if (Controller1.ButtonR2.pressing()) {
       ToggleLeft.spin(fwd, TOGGLE_SPEED, percent);
       ToggleRight.spin(fwd, TOGGLE_SPEED, percent);
@@ -219,8 +184,6 @@ int main() {
 
   // Registered here, not in usercontrol, so each press only fires once
   // even when the field or switch restarts driver control.
-  Controller1.ButtonA.pressed(toggleFieldCentric);
-  Controller1.ButtonB.pressed(resetHeading);
   Controller1.ButtonR1.pressed(toggleClaw);
 
   pre_auton();

@@ -1,4 +1,7 @@
-# 93601V X-Drive Robot: Handoff Notes
+# 93601V Robot: Handoff Notes
+
+> **Update 19 Nov 2026: the robot is now a 44W tank drive, not an X-drive.** Left side motors 10 (front) and 9 (back), right side 20 (front) and 19 (back), geared 36:60. Driver code is `TankDrive.v5cpp` (arcade: left stick forward/back, right stick turn; no strafe, no field-centric, A and B unused). Competition code is `OverrideComp.v5cpp`. `XDrive.*` has been removed. Most of the notes below describe the older X-drive version.
+
 
 Everything known about the robot and its code as of 10 November 2026, so work can continue on another computer (or in a new Claude session: paste or attach this file).
 

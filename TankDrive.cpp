@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
 /*    Team 93601V - Tank drive, driver control only (4 x 11W = 44W)           */
-/*    For matches use OverrideComp.v5cpp, which also has the autons.          */
+/*    For matches use TankComp.v5cpp, which also has the autons.              */
 /*                                                                            */
 /*    Ports:                                                                  */
 /*      Radio (antenna) ... 11  (no code needed, just plug it in)             */
@@ -127,7 +127,7 @@ void pre_auton(void) {
 /*---------------------------------------------------------------------------*/
 void autonomous(void) {
   // Placeholder: drive forward 1 second, then stop.
-  // The real autons are in OverrideComp.v5cpp.
+  // The real autons are in TankComp.v5cpp.
   tankDrive(50, 0);
   wait(1000, msec);
   stopDrive();

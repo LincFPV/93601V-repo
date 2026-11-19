@@ -98,7 +98,7 @@ const double STRAFE_SCALE   = 1.0;      // raise if the robot strafes short
 // These match the directions the team settled on in driver control.
 const double DRIVE_SIGN  = -1;          // forward/back is inverted
 const double STRAFE_SIGN =  1;
-const double TURN_SIGN   = -1;          // turning is inverted
+const double TURN_SIGN   =  1;
 
 // ---- Robot shape (inches / degrees) ----
 // Angles are measured clockwise from the FRONT of the robot, looking down.

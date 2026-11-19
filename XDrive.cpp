@@ -71,9 +71,8 @@ int applyDeadband(int value) {
 
 // drive, strafe, turn are -100..100 (percent)
 void xDrive(double drive, double strafe, double turn) {
-  // Forward/back and turning are inverted; strafing is not.
+  // Forward/back is inverted; strafing and turning are not.
   drive = -drive;
-  turn = -turn;
 
   double fl = drive + strafe + turn;
   double fr = drive - strafe - turn;

@@ -1,4 +1,6 @@
 # **93601V Repo**
+
+> **Switching computers or new to the repo? Read [HANDOFF.md](HANDOFF.md).** Get the latest with `./scripts/sync.sh`, save your work with `./scripts/sync.sh "what you changed"`.
 ## **What this is**
 This serves as the primary place for coordinating code writing and other files for the team, will be periodically updated with the newest code or whenever I can be bothered to
 ## **What can you find here**

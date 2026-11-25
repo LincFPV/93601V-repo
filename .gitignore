@@ -1,0 +1,9 @@
+# Mac and Windows clutter
+.DS_Store
+Thumbs.db
+
+# Build output from VEXcode / VS Code VEX projects
+build/
+
+# Python
+__pycache__/

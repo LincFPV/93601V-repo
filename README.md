@@ -12,7 +12,27 @@ After much brain storming I have come up with an achievable plan for an auton co
 
 Toggle the toggle twice to match the colour of the team we are --> drive forward 2 feet --> rotate until Ai vision sensor sees target goal April tag at 0 degrees --> Move forward till bumper is triggered  --> move the pin cup preload into place.
 
-## **X-Drive robot (branch `x-drive`)**
-- XDrive.v5cpp --- X-drive driver code with field-centric driving (FL 10, FR 20, BL 9, BR 19, inertial 12, radio 11), 33W cascade lift (1, 2, 3), pneumatic claw (3-wire A) and a toggle (4) watched by the colour sensor (5). XDrive.cpp is the same code as plain C++
-- OverrideComp.v5cpp --- full Override competition code for the X-drive: brain-screen auton selector (alliance, start wall, routine), odometry, six 15 second match autons, a 60 second skills auton and a drive test. OverrideComp.cpp is the same code as plain C++. Not tested on the robot yet, see the tuning steps at the top of the file
-- ROBOT.md --- handoff notes: ports, controls, how the code works and open problems
+## **X-drive and tank drive code (branch `x-drive`)**
+Both drive bases are kept. Use the pair that matches the robot you have built. The claw (3-wire A) and controls (hold R2 for the side toggles) are the same in both, but the ports are not.
+
+**Tank drive (44W, two 11W motors per side) -- the current robot**
+
+| Device | Port |
+|---|---|
+| Front left / back left drive | 3 / 11 |
+| Front right / back right drive | 8 / 20 |
+| Inertial | 16 |
+| Lift (2 x 11W) | 1 and 10 |
+| Side toggles (5.5W) | left 2, right 9 |
+| Claw solenoid | 3-wire A |
+
+Drive, lift and side toggles run on voltage (12 V = full power) for more speed.
+- TankDrive.v5cpp --- driver code: arcade drive (left stick forward/back, right stick turn)
+- TankComp.v5cpp --- full Override competition code: brain-screen auton selector, odometry, six 15 second match autons, a 60 second skills auton and a drive test
+
+**X-drive (44W, one 11W motor per wheel: FL 10, FR 20, BL 9, BR 19, inertial 12, lift 1 + 2, side toggles left 3, right 4)** -- still on the old ports
+- XDrive.v5cpp --- driver code with field-centric driving and strafing
+- XDriveComp.v5cpp --- full Override competition code for the X-drive, same routines as TankComp
+
+Each .v5cpp has a matching .cpp with the same code as plain C++. None of the competition code has been tested on a robot yet; see the tuning steps at the top of each file.
+- ROBOT.md --- handoff notes (ports, controls, open problems); the top of the file lists what has changed since

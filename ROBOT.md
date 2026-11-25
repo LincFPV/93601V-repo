@@ -1,4 +1,9 @@
-# 93601V X-Drive Robot: Handoff Notes
+# 93601V Robot: Handoff Notes
+
+> **Update 24 Nov 2026: new ports and voltage control (tank drive only).** Front left drive 3, back left 11, front right 8, back right 20 (right side reversed), inertial 16, lift 1 + 10, side toggles left 2 and right 9 (5.5W), claw 3-wire A. The radio can go in any free port. `TankDrive` and `TankComp` now drive the drive, the driver-control lift and the side toggles by voltage (`spin(..., volt)`, 100% = 12 V) instead of percent velocity, for more speed. Because voltage is open loop, the auton minimum powers in `TankComp` were raised (`MIN_MOVE` 20, `MIN_TURN` 15); retune them on the robot. The X-drive files still use the old ports. The port table further down is out of date; use the code headers.
+
+> **Update 19 Nov 2026: the robot is now a 44W tank drive, not an X-drive.** Left side motors 10 (front) and 9 (back), right side 20 (front) and 19 (back), geared 36:60. Driver code is `TankDrive.v5cpp` (arcade: left stick forward/back, right stick turn; no strafe, no field-centric, A and B unused). Competition code is `TankComp.v5cpp`. The X-drive code is kept as `XDrive.v5cpp` and `XDriveComp.v5cpp` in case the robot goes back to an X-drive. Most of the notes below describe the X-drive version.
+
 
 Everything known about the robot and its code as of 10 November 2026, so work can continue on another computer (or in a new Claude session: paste or attach this file).
 
@@ -22,7 +27,8 @@ Everything known about the robot and its code as of 10 November 2026, so work ca
 ## The robot
 
 - **Drive:** X-drive, 4 x 11W V5 motors (44W total), one per wheel.
-- **Lift:** cascade lift, 3 x 11W motors (33W).
+- **Lift:** cascade lift, 2 x 11W motors (22W) on ports 1 and 2. (Changed 17 Nov 2026 from 3 motors; port 3 is now free. The drive is geared 36:60. The code copy at the bottom of this file is the older 10 Nov version; use XDrive.cpp.)
+- **Toggles (changed 17 Nov 2026):** the single toggle motor and the colour sensor are gone. There are now two side toggles, one 5.5W motor each: left on port 3, right on port 4. Hold R2 to spin both; hold the Up arrow to spin both the other way. Port 5 is free. The "Active toggle", port table, controls and "toggle does not work" sections below describe the old mechanism.
 - **Claw:** pneumatic, one solenoid.
 - **Active toggle:** one motor, watched by a colour (optical) sensor.
 - **Inertial sensor** for field-centric driving.

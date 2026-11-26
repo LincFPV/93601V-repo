@@ -56,6 +56,10 @@ in VEXcode to download to the robot).
 - Edit either one. `sync.sh` copies your change into the other.
 - To check them without saving: `python3 scripts/v5cpp_sync.py --check`
 - To download to the brain: open the `.v5cpp` in VEXcode V5.
+- VS Code's red error underlines need the VEX V5 SDK, which the VEX extension
+  downloads the first time you create or open a VEX project in VS Code. The
+  repo's `.vscode` settings then point VS Code at it. If `vex.h` shows as "not
+  found", do that once and reload VS Code (Cmd/Ctrl+Shift+P → Reload Window).
 - In VEXcode, keep the **Devices panel empty** and never add `brain Brain;`.
   Every device is declared in the code; doing either gives "redefinition" errors.
 
@@ -70,6 +74,9 @@ points it here, so it starts with the full picture. Ask it to
 
 Newest entry first. Add a line whenever something changes or gets tested.
 
+- **26 Nov 2026:** Both tank programs built with VEXcode's own compiler: no
+  errors or warnings. VS Code's red underlines were it not finding `vex.h`;
+  fixed with `.vscode/c_cpp_properties.json`.
 - **26 Nov 2026:** Side toggles slowed to 50% (`TOGGLE_SPEED`). Cleaned up
   `main`: old robot and X-drive code moved to the `deprecated` branch. Added
   `.github/copilot-instructions.md` so GitHub Copilot in VS Code knows the project.

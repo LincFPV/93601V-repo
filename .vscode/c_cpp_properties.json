@@ -1,0 +1,41 @@
+{
+  "env": {
+    "vexSdkMac": "${env:HOME}/Library/Application Support/Code/User/globalStorage/vexrobotics.vexcode/sdk/cpp/V5/V5_20240802_15_00_00/vexv5",
+    "vexSdkWin": "${env:APPDATA}/Code/User/globalStorage/vexrobotics.vexcode/sdk/cpp/V5/V5_20240802_15_00_00/vexv5"
+  },
+  "configurations": [
+    {
+      "name": "Mac",
+      "includePath": [
+        "${workspaceFolder}/.vscode/vex-include",
+        "${vexSdkMac}/include",
+        "${vexSdkMac}/clang/8.0.0/include",
+        "${vexSdkMac}/gcc/include/c++/4.9.3",
+        "${vexSdkMac}/gcc/include/c++/4.9.3/arm-none-eabi/armv7-ar/thumb",
+        "${vexSdkMac}/gcc/include"
+      ],
+      "defines": ["VexV5"],
+      "compilerPath": "",
+      "cStandard": "gnu99",
+      "cppStandard": "gnu++11",
+      "intelliSenseMode": "clang-arm"
+    },
+    {
+      "name": "Win32",
+      "includePath": [
+        "${workspaceFolder}/.vscode/vex-include",
+        "${vexSdkWin}/include",
+        "${vexSdkWin}/clang/8.0.0/include",
+        "${vexSdkWin}/gcc/include/c++/4.9.3",
+        "${vexSdkWin}/gcc/include/c++/4.9.3/arm-none-eabi/armv7-ar/thumb",
+        "${vexSdkWin}/gcc/include"
+      ],
+      "defines": ["VexV5"],
+      "compilerPath": "",
+      "cStandard": "gnu99",
+      "cppStandard": "gnu++11",
+      "intelliSenseMode": "clang-arm"
+    }
+  ],
+  "version": 4
+}

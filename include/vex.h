@@ -6,8 +6,9 @@
 #include "v5.h"
 #include "v5_vcs.h"
 
-// The brain is created in src/robot-config.cpp (VEXcode does the same
-// behind the scenes), so the code never declares "brain Brain;" itself.
+// The brain is created at the top of src/main.cpp, before TankComp.cpp is
+// included (VEXcode does the same behind the scenes), so TankComp.cpp never
+// declares "brain Brain;" itself.
 extern vex::brain Brain;
 
 

@@ -34,9 +34,12 @@ Nothing here has been tested on the robot unless a note says so.
   `robotConfig` empty: every device is declared in the code.
 - Use `Brain.Screen.printAt(x, y, true, "...")` with the `true` argument.
 - Code is C++11 (`-std=gnu++11`) for the V5 SDK.
-- The repo root is also a VEX VS Code project for TankComp: `src/main.cpp` only
-  does `#include "../TankComp.cpp"`, and `src/robot-config.cpp` declares
-  `brain Brain;` (VEXcode adds that itself, so it must never go in TankComp.cpp).
+- The repo root is also a VEX VS Code project for TankComp: `src/main.cpp`
+  defines `vex::brain Brain;` and then does `#include "../TankComp.cpp"`
+  (VEXcode adds the brain itself, so it must never go in TankComp.cpp). The
+  brain must stay above that #include in the same file: moving it to another
+  .cpp makes the claw (`Brain.ThreeWirePort.A`) get created first and the brain
+  crashes with a memory permission error.
   Edit `TankComp.cpp`, not `src/main.cpp`. `include/vex.h` declares
   `extern vex::brain Brain;`.
 - Both tank programs were built with VEXcode's compiler on 26 Nov 2026 with no

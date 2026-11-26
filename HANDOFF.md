@@ -62,9 +62,9 @@ in VEXcode to download to the robot).
 repo folder in VS Code, plug in the brain or controller, then use the VEX
 buttons at the bottom of the window (or the VEX icon in the left bar): **Build**,
 then **Download**. It goes to slot 1 as "TankComp".
-- Edit `TankComp.cpp` in the main folder. `src/main.cpp` only includes it, and
-  `src/robot-config.cpp` creates the brain (VEXcode does that by itself), so
-  VS Code and VEXcode always build exactly the same program.
+- Edit `TankComp.cpp` in the main folder. `src/main.cpp` creates the brain and
+  then includes it (VEXcode does the same by itself), so VS Code and VEXcode
+  always build exactly the same program.
 - The first time, the VEX extension may download its SDK and compiler; let it.
 
 **From VEXcode V5:** open `TankComp.v5cpp` (or `TankDrive.v5cpp` for driver
@@ -83,6 +83,11 @@ points it here, so it starts with the full picture. Ask it to
 
 Newest entry first. Add a line whenever something changes or gets tested.
 
+- **26 Nov 2026:** Fixed "memory permission error 0380619C" on the brain when
+  downloading from VS Code. The brain object was created after the claw (which
+  uses `Brain.ThreeWirePort.A`), because it was in a separate file. It is now
+  created at the top of `src/main.cpp`, before `TankComp.cpp` is included.
+  Checked in the built program: the brain is now set up first.
 - **26 Nov 2026:** The repo is now a VEX VS Code project for TankComp
   (`makefile`, `vex/`, `include/vex.h`, `src/`, `.vscode/vex_project_settings.json`).
   Built with the VEX toolchain: same program size as the VEXcode build, no errors.

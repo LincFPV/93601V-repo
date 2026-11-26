@@ -63,13 +63,16 @@ in VEXcode to download to the robot).
 
 Open this repo folder in Claude Code (desktop app: choose the folder; terminal:
 `cd ~/Robotics/93601V-repo` then `claude`). Claude reads `CLAUDE.md`, which
-points it here and at `ROBOT.md`, so it starts with the full picture. Ask it to
+points it here, so it starts with the full picture. Ask it to
 "update HANDOFF.md and sync" when you're done.
 
 ## Where we're up to
 
 Newest entry first. Add a line whenever something changes or gets tested.
 
+- **26 Nov 2026:** Side toggles slowed to 50% (`TOGGLE_SPEED`). Cleaned up
+  `main`: old robot and X-drive code moved to the `deprecated` branch. Added
+  `.github/copilot-instructions.md` so GitHub Copilot in VS Code knows the project.
 - **25 Nov 2026:** Added this handoff setup (`HANDOFF.md`, `CLAUDE.md`,
   `scripts/`). VS Code and the VEX extension are set up on Lincoln's Mac.
 - **24 Nov 2026:** Tank drive moved to new ports (drive 3, 11, 8, 20; inertial
@@ -91,7 +94,5 @@ of each file and in `README.md`.
       tuning steps are at the top of `TankComp.cpp`.
 - [ ] Measure and fill in: wheel diameter, claw reach, every lift height
       (`H_...`), `TOGGLE_FLIP_DEGREES`.
-- [ ] The X-drive code is split across branches. On `main`, `XDrive` and
-      `OverrideComp` are older X-drive versions. The newest X-drive files
-      (`XDrive`, `XDriveComp`, with side toggles and the 22W lift) are only on
-      the `x-drive` branch. Only matters if the robot goes back to an X-drive.
+- [ ] Nothing else. Old code (X-drive and the earlier robot) is archived on the
+      `deprecated` branch if it's ever needed again.

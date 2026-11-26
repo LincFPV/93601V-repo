@@ -2,18 +2,16 @@
 
 Team 93601V, VEX V5 Robotics Competition, game: Override (2026-27).
 
-Read `HANDOFF.md` first ("Where we're up to" is the current state), then
-`ROBOT.md` for older background. The code headers are the source of truth for
-ports; the port tables in `ROBOT.md` are out of date.
+Read `HANDOFF.md` first ("Where we're up to" is the current state). The code
+headers are the source of truth for ports.
 
 ## Files
 
 - Current robot is a tank drive: `TankDrive` (driver only) and `TankComp`
   (competition: brain-screen auton selector, odometry, 15 s match autons,
   60 s skills, TEST routine).
-- `XDrive` / `OverrideComp` (and `XDriveComp` on the `x-drive` branch) are the
-  earlier X-drive version. `drivetrain`, `auton`, `Comp`, `CompV2`,
-  `OldDrivetrainComp` are an older robot.
+- Old code (the X-drive version and the earlier robot, plus the old
+  `ROBOT.md` notes) is on the `deprecated` branch, not on `main`.
 - Every program exists as `Name.cpp` and `Name.v5cpp`. The `.v5cpp` is JSON with
   the code in `textContent`. After editing either, run
   `python3 scripts/v5cpp_sync.py` so they match. Never leave a pair out of sync.

@@ -18,13 +18,15 @@ Nothing here has been tested on the robot unless a note says so.
 
 ## Other files
 
-- `XDrive.cpp` / `OverrideComp.cpp`: an older X-drive version (single toggle motor
-  and colour sensor). The newest X-drive files (`XDrive`, `XDriveComp`) are on the
-  `x-drive` branch. `drivetrain`, `auton`, `Comp`, `CompV2`, `OldDrivetrainComp` are
-  an older robot.
+- Old code is on the `deprecated` branch, not `main`: `x-drive/` (the X-drive
+  version of this robot) and `old-robot/` (the earlier robot).
+- `HANDOFF.md`: how to switch computers, plus the dated "Where we're up to" log.
+  Keep it updated. `scripts/sync.sh` matches .cpp/.v5cpp pairs, commits, pulls
+  and pushes; `scripts/v5cpp_sync.py` only matches the pairs.
 - Every program is stored twice: `Name.cpp` and `Name.v5cpp` (VEXcode V5 project,
   JSON with the code in `"textContent"`). **After editing a `.cpp`, the matching
-  `.v5cpp` must get the same code**, or VEXcode downloads the old version.
+  `.v5cpp` must get the same code**, or VEXcode downloads the old version. Run
+  `python3 scripts/v5cpp_sync.py` to do that.
 
 ## VEXcode rules (these caused build errors before)
 
@@ -34,12 +36,11 @@ Nothing here has been tested on the robot unless a note says so.
 
 ## What has been done (newest first)
 
-- **26 Nov 2026 (not committed yet, branch `slower-toggle`):** side toggle speed
-  lowered from 100% to 50% (`TOGGLE_SPEED` in `TankDrive.cpp` and `TankComp.cpp`,
-  `.v5cpp` files updated). Also slows the auton toggle flip.
-- **25 Nov 2026:** Pull request #2 (branch `handoff-tools`, not merged yet) adds
-  `HANDOFF.md`, `CLAUDE.md`, `scripts/sync.sh` (match .cpp/.v5cpp, commit, pull,
-  push), `scripts/v5cpp_sync.py` and `scripts/setup-mac.sh`.
+- **26 Nov 2026:** side toggle speed lowered from 100% to 50% (`TOGGLE_SPEED` in
+  `TankDrive.cpp` and `TankComp.cpp`); also slows the auton toggle flip. Old robot
+  and X-drive code moved to the `deprecated` branch.
+- **25 Nov 2026:** added `HANDOFF.md`, `CLAUDE.md`, `scripts/sync.sh`,
+  `scripts/v5cpp_sync.py` and `scripts/setup-mac.sh` for moving between computers.
 - **24 Nov 2026:** tank drive moved to the ports above and to voltage control;
   auton minimum powers raised (`MIN_MOVE` 20, `MIN_TURN` 15).
 - **19 Nov 2026:** robot changed from X-drive to a 44W tank drive; autons rewritten

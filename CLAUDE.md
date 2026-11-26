@@ -20,6 +20,9 @@ headers are the source of truth for ports.
 
 - Do not add `brain Brain;` (VEXcode declares it) and keep the Devices panel /
   `robotConfig` empty; all devices are declared in the code.
+- The repo root is also a VEX VS Code project for TankComp: `src/main.cpp`
+  includes `../TankComp.cpp` and `src/robot-config.cpp` declares the brain.
+  Edit `TankComp.cpp`, never `src/main.cpp`.
 - Use `Brain.Screen.printAt(x, y, true, "...")` with the `true` argument
   (without it `printAt` is ambiguous).
 

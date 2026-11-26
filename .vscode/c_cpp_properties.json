@@ -7,7 +7,7 @@
     {
       "name": "Mac",
       "includePath": [
-        "${workspaceFolder}/.vscode/vex-include",
+        "${workspaceFolder}/include",
         "${vexSdkMac}/include",
         "${vexSdkMac}/clang/8.0.0/include",
         "${vexSdkMac}/gcc/include/c++/4.9.3",
@@ -23,7 +23,7 @@
     {
       "name": "Win32",
       "includePath": [
-        "${workspaceFolder}/.vscode/vex-include",
+        "${workspaceFolder}/include",
         "${vexSdkWin}/include",
         "${vexSdkWin}/clang/8.0.0/include",
         "${vexSdkWin}/gcc/include/c++/4.9.3",

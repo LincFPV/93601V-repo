@@ -33,8 +33,12 @@ Nothing here has been tested on the robot unless a note says so.
 - Never add `brain Brain;` (VEXcode declares it). Keep the VEXcode Devices panel /
   `robotConfig` empty: every device is declared in the code.
 - Use `Brain.Screen.printAt(x, y, true, "...")` with the `true` argument.
-- Code is C++11 (`-std=gnu++11`) for the V5 SDK. `.vscode/vex-include/vex.h` is
-  only for VS Code's error checking; VEXcode supplies the real one.
+- Code is C++11 (`-std=gnu++11`) for the V5 SDK.
+- The repo root is also a VEX VS Code project for TankComp: `src/main.cpp` only
+  does `#include "../TankComp.cpp"`, and `src/robot-config.cpp` declares
+  `brain Brain;` (VEXcode adds that itself, so it must never go in TankComp.cpp).
+  Edit `TankComp.cpp`, not `src/main.cpp`. `include/vex.h` declares
+  `extern vex::brain Brain;`.
 - Both tank programs were built with VEXcode's compiler on 26 Nov 2026 with no
   errors or warnings. If VS Code shows errors, check the include setup in
   `.vscode/c_cpp_properties.json` before changing code.

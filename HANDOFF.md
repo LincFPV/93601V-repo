@@ -55,11 +55,20 @@ in VEXcode to download to the robot).
 
 - Edit either one. `sync.sh` copies your change into the other.
 - To check them without saving: `python3 scripts/v5cpp_sync.py --check`
-- To download to the brain: open the `.v5cpp` in VEXcode V5.
-- VS Code's red error underlines need the VEX V5 SDK, which the VEX extension
-  downloads the first time you create or open a VEX project in VS Code. The
-  repo's `.vscode` settings then point VS Code at it. If `vex.h` shows as "not
-  found", do that once and reload VS Code (Cmd/Ctrl+Shift+P → Reload Window).
+
+### Downloading to the robot
+
+**From VS Code (TankComp):** the repo folder is a VEX VS Code project. Open the
+repo folder in VS Code, plug in the brain or controller, then use the VEX
+buttons at the bottom of the window (or the VEX icon in the left bar): **Build**,
+then **Download**. It goes to slot 1 as "TankComp".
+- Edit `TankComp.cpp` in the main folder. `src/main.cpp` only includes it, and
+  `src/robot-config.cpp` creates the brain (VEXcode does that by itself), so
+  VS Code and VEXcode always build exactly the same program.
+- The first time, the VEX extension may download its SDK and compiler; let it.
+
+**From VEXcode V5:** open `TankComp.v5cpp` (or `TankDrive.v5cpp` for driver
+practice only) and download as usual.
 - In VEXcode, keep the **Devices panel empty** and never add `brain Brain;`.
   Every device is declared in the code; doing either gives "redefinition" errors.
 
@@ -74,6 +83,9 @@ points it here, so it starts with the full picture. Ask it to
 
 Newest entry first. Add a line whenever something changes or gets tested.
 
+- **26 Nov 2026:** The repo is now a VEX VS Code project for TankComp
+  (`makefile`, `vex/`, `include/vex.h`, `src/`, `.vscode/vex_project_settings.json`).
+  Built with the VEX toolchain: same program size as the VEXcode build, no errors.
 - **26 Nov 2026:** Both tank programs built with VEXcode's own compiler: no
   errors or warnings. VS Code's red underlines were it not finding `vex.h`;
   fixed with `.vscode/c_cpp_properties.json`.

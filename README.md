@@ -11,6 +11,8 @@ Code for team 93601V's VEX V5 robot, game: Override (2026-27).
 | `TankComp.v5cpp` | **Flash this for matches and skills.** Driver control plus a brain-screen auton selector, odometry, six 15 second match autons, a 60 second skills auton and a drive test. |
 | `TankDrive.v5cpp` | Driver control only, for practice. |
 
+The repo folder is also a VEX VS Code project that builds and downloads `TankComp` (see `HANDOFF.md`).
+
 Each `.v5cpp` (open in VEXcode V5) has a matching `.cpp` with the same code as plain C++ (edit in VS Code or read on GitHub). `scripts/sync.sh` keeps them matching.
 
 | Device | Port |

@@ -1,6 +1,7 @@
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
-/*    Team 93601V - X-Drive (4 x 11W motors)                                  */
+/*    Team 93601V - X-Drive (4 x 11W motors), driver control only            */
+/*    For matches use XDriveComp.v5cpp, which also has the autons.            */
 /*                                                                            */
 /*    Ports:                                                                  */
 /*      Radio (antenna) ... 11  (no code needed, just plug it in)             */
@@ -9,9 +10,8 @@
 /*      Front Right ....... 20                                                */
 /*      Back Left .........  9                                                */
 /*      Back Right ........ 19                                                */
-/*      Lift (3 x 11W) .... 1, 2, 3   <- change these to match your robot     */
-/*      Toggle motor ......  4        <- change to match your robot           */
-/*      Colour sensor .....  5        <- change to match your robot           */
+/*      Lift (2 x 11W) .... 1, 2      <- change these to match your robot     */
+/*      Side toggles ...... left 3, right 4 (5.5W motors)                     */
 /*      Claw piston ....... 3-wire port A on the brain                        */
 /*                                                                            */
 /*    Controls:                                                               */
@@ -20,8 +20,8 @@
 /*      Right stick X = turn                                                  */
 /*      L1 / L2       = lift up / down                                        */
 /*      R1            = open / close claw                                     */
-/*      R2            = run toggle until the colour sensor sees red           */
-/*                      (press R2 again to cancel)                            */
+/*      R2 (hold)       = spin both side toggles                              */
+/*      Up arrow (hold) = spin both side toggles the other way                */
 /*      A             = toggle field-centric / robot-centric                  */
 /*      B             = reset heading (point robot "forward" first)           */
 /*                                                                            */
@@ -43,31 +43,28 @@ motor BackRight  = motor(PORT19, ratio18_1, true);
 
 inertial Inertial = inertial(PORT12);
 
-// 33W cascade lift: three 11W motors working together.
+// 22W cascade lift: two 11W motors working together.
 // If one motor fights the others, flip its true/false.
 motor LiftMotorA = motor(PORT1, ratio18_1, false);
 motor LiftMotorB = motor(PORT2, ratio18_1, true);
-motor LiftMotorC = motor(PORT3, ratio18_1, false);
-motor_group Lift = motor_group(LiftMotorA, LiftMotorB, LiftMotorC);
+motor_group Lift = motor_group(LiftMotorA, LiftMotorB);
 
 // Pneumatic claw: solenoid plugged into 3-wire port A.
 digital_out Claw = digital_out(Brain.ThreeWirePort.A);
 
-// Active toggle and the colour (optical) sensor that watches it.
-motor ToggleMotor = motor(PORT4, ratio18_1, false);
-optical ColourSensor = optical(PORT5);
+// Side toggle mechanisms: one 5.5W motor on each side of the robot.
+// (5.5W motors always run at 200 RPM, so ratio18_1 is correct for them.)
+// If one spins the wrong way, flip its true/false.
+motor ToggleLeft  = motor(PORT3, ratio18_1, false);
+motor ToggleRight = motor(PORT4, ratio18_1, true);
 
 // Joystick values below this are treated as 0 to stop drift.
 const int DEADBAND = 5;
 
-// Toggle macro settings.
-const int TOGGLE_SPEED = 60;          // percent
-const int TOGGLE_TIMEOUT_MS = 3000;   // give up if red is never seen
+const int TOGGLE_SPEED = 100;         // percent (5.5W motors are weak)
 
 bool fieldCentric = true;
 bool clawClosed = false;
-bool toggleRunning = false;
-int toggleStartTime = 0;
 
 int applyDeadband(int value) {
   return (std::abs(value) < DEADBAND) ? 0 : value;
@@ -108,7 +105,7 @@ void stopDrive() {
 }
 
 /*---------------------------------------------------------------------------*/
-/*                          Claw and Toggle                                  */
+/*                               Claw                                        */
 /*---------------------------------------------------------------------------*/
 void setClaw(bool closed) {
   clawClosed = closed;
@@ -119,56 +116,14 @@ void toggleClaw() {
   setClaw(!clawClosed);
 }
 
-// Red sits at both ends of the hue wheel (0-360), so check both ends.
-bool seesRed() {
-  if (!ColourSensor.isNearObject()) {
-    return false;
-  }
-  double hue = ColourSensor.hue();
-  return hue < 20 || hue > 340;
-}
-
-void stopToggle() {
-  toggleRunning = false;
-  ToggleMotor.stop(hold);
-}
-
-// R2: start the toggle macro, or cancel it if it's already running.
-void startToggleMacro() {
-  if (toggleRunning) {
-    stopToggle();
-    return;
-  }
-  toggleRunning = true;
-  toggleStartTime = Brain.Timer.time(msec);
-  ToggleMotor.spin(fwd, TOGGLE_SPEED, percent);
-}
-
-// Called every loop so the toggle runs without freezing the drive.
-void updateToggleMacro() {
-  if (!toggleRunning) {
-    return;
-  }
-  if (seesRed()) {
-    stopToggle();
-    Controller1.rumble(".");
-  } else if (Brain.Timer.time(msec) - toggleStartTime > TOGGLE_TIMEOUT_MS) {
-    stopToggle();
-    Controller1.rumble("--");
-  }
-}
-
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous                                   */
 /*---------------------------------------------------------------------------*/
 void pre_auton(void) {
   Lift.setStopping(hold);
-  ToggleMotor.setStopping(hold);
+  ToggleLeft.setStopping(hold);
+  ToggleRight.setStopping(hold);
   setClaw(false);
-
-  // Turn on the sensor's light so it reads colour the same in any lighting.
-  ColourSensor.setLight(ledState::on);
-  ColourSensor.setLightPower(100, percent);
 
   Brain.Screen.clearScreen();
   Brain.Screen.printAt(10, 30, "Calibrating inertial... don't move!");
@@ -207,33 +162,12 @@ void resetHeading() {
   Controller1.rumble(".");
 }
 
-// Shows on the brain what the toggle macro can see, for troubleshooting.
-void showToggleStatus(int r2Presses) {
-  // The "true" draws each line over the old one and picks the right printAt.
-  Brain.Screen.printAt(10, 60, true, "R2 presses: %d   ", r2Presses);
-  Brain.Screen.printAt(10, 85, true, "Toggle: %s   ", toggleRunning ? "RUNNING" : "stopped");
-  Brain.Screen.printAt(10, 110, true, "Motor port 4: %s   ", ToggleMotor.installed() ? "found" : "MISSING");
-  Brain.Screen.printAt(10, 135, true, "Sensor port 5: %s   ", ColourSensor.installed() ? "found" : "MISSING");
-  Brain.Screen.printAt(10, 160, true, "Hue: %.0f  Near: %s   ", ColourSensor.hue(), ColourSensor.isNearObject() ? "yes" : "no");
-}
-
 void usercontrol(void) {
   Controller1.Screen.clearScreen();
   Controller1.Screen.setCursor(1, 1);
   Controller1.Screen.print(fieldCentric ? "Field-centric" : "Robot-centric");
 
-  bool r2WasPressed = false;
-  int r2Presses = 0;
-
   while (true) {
-    // R2 is checked here so one press can only ever start or cancel once.
-    bool r2Pressed = Controller1.ButtonR2.pressing();
-    if (r2Pressed && !r2WasPressed) {
-      r2Presses++;
-      startToggleMacro();
-    }
-    r2WasPressed = r2Pressed;
-
     double drive  = applyDeadband(Controller1.Axis3.position());
     double strafe = applyDeadband(Controller1.Axis4.position());
     double turn   = applyDeadband(Controller1.Axis1.position());
@@ -263,8 +197,18 @@ void usercontrol(void) {
       Lift.stop(hold);
     }
 
-    updateToggleMacro();
-    showToggleStatus(r2Presses);
+    // Side toggles: hold R2 to spin both. Hold the Up arrow to spin both
+    // the other way.
+    if (Controller1.ButtonR2.pressing()) {
+      ToggleLeft.spin(fwd, TOGGLE_SPEED, percent);
+      ToggleRight.spin(fwd, TOGGLE_SPEED, percent);
+    } else if (Controller1.ButtonUp.pressing()) {
+      ToggleLeft.spin(reverse, TOGGLE_SPEED, percent);
+      ToggleRight.spin(reverse, TOGGLE_SPEED, percent);
+    } else {
+      ToggleLeft.stop(hold);
+      ToggleRight.stop(hold);
+    }
 
     wait(20, msec);
   }

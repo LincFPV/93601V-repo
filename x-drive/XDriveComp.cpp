@@ -1,20 +1,19 @@
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
-/*    Team 93601V - Tank drive competition code for VEX V5 Override        */
+/*    Team 93601V - X-Drive competition code for VEX V5 Override (2026-27)    */
 /*                                                                            */
-/*    Ports (same as TankDrive.cpp). X-drive version: XDriveComp.cpp         */
-/*      Drive (4 x 11W = 44W): left 3 (front) + 11 (back),                    */
-/*                             right 8 (front) + 20 (back)                    */
-/*      Inertial 16, Radio: any free port   Drive geared 36:60 (motor:wheel)  */
-/*      Lift 1, 10        Side toggles: left 2, right 9 (5.5W motors)         */
+/*    Ports (same as XDrive.cpp). Tank drive version: TankComp.cpp           */
+/*      Front Left 10, Front Right 20, Back Left 9, Back Right 19             */
+/*      Inertial 12, Radio 11        Drive geared 36:60 (motor:wheel)         */
+/*      Lift 1, 2         Side toggles: left 3, right 4 (5.5W motors)         */
 /*      Claw piston: 3-wire port A                                            */
-/*      Drive, lift and side toggles run on voltage (12 V = full power).      */
 /*                                                                            */
-/*    Driver controls:                                                        */
-/*      Left stick up/down = forward / back    Right stick X = turn           */
+/*    Driver controls (unchanged):                                            */
+/*      Left stick = drive / strafe      Right stick X = turn                 */
 /*      L1 / L2 = lift up / down         R1 = claw                            */
 /*      R2 (hold) = spin both side toggles                                    */
 /*      Up arrow (hold) = spin both side toggles the other way                */
+/*      A  = field-centric on/off        B = reset heading                    */
 /*      X + Y together = test-run the selected auton (only works when NOT     */
 /*                       plugged into field control). Down arrow = abort.     */
 /*                                                                            */
@@ -26,26 +25,21 @@
 /*    For Autonomous Coding Skills pick the routine "SKILLS 60s".             */
 /*                                                                            */
 /*    HOW TO PLACE THE ROBOT (every routine except TEST):                     */
-/*      BACK of the robot flat against the wall, centred under the Toggle,    */
-/*      facing into the field, lift down. Nothing may touch the Toggle at     */
-/*      the start (rule SG1). Preload in the claw, yellow end UP. Power on    */
-/*      with the lift down and don't move the robot while the inertial        */
-/*      calibrates.                                                           */
+/*      Centred on the wall, right under the Toggle, with the side toggle     */
+/*      picked in AUTON_TOGGLE_ON_RIGHT against the wall and the lift down.   */
+/*      Preload in the claw, yellow end UP. Power on with the lift down       */
+/*      and don't move the robot while the inertial calibrates.               */
 /*                                                                            */
 /*    TUNING ORDER (nothing below has been run on the real robot yet):        */
-/*      1. Push the left stick up: the robot must drive forward. If not,      */
-/*         set DRIVE_SIGN to -1. Push the right stick right: it must turn     */
-/*         clockwise. If not, set TURN_SIGN to -1. The autons need both       */
-/*         right or they will spin in circles.                                */
-/*      2. Run routine "TEST" with X+Y: forward 24", turn right, forward      */
-/*         24", then back to the start facing forward. If the distance is     */
-/*         wrong fix WHEEL_DIAMETER (or FORWARD_SCALE).                       */
-/*      3. Drive the lift by hand and read "Lift" on the brain screen to      */
+/*      1. Run routine "TEST" with X+Y. It should go forward 24", right       */
+/*         24", turn 90 degrees clockwise, then come home. If a direction     */
+/*         is wrong fix DRIVE_SIGN / STRAFE_SIGN / TURN_SIGN. If the          */
+/*         distance is wrong fix WHEEL_DIAMETER (or the two SCALE numbers).   */
+/*      2. Drive the lift by hand and read "Lift" on the brain screen to      */
 /*         fill in every H_... height.                                        */
-/*      4. Measure CLAW_REACH and START_WALL_DIST, set AUTON_TOGGLE_ON_RIGHT, */
-/*         set TOGGLE_WALL_DIST so the side toggle reaches the field Toggle,  */
+/*      3. Measure CLAW_REACH and START_WALL_DIST, set AUTON_TOGGLE_ON_RIGHT  */
 /*         and tune TOGGLE_FLIP_DEGREES until one flip lands on your colour.  */
-/*      5. Tune one routine at a time, shortest first.                        */
+/*      4. Tune one routine at a time, shortest first.                        */
 /*                                                                            */
 /*    Keep the VEXcode Devices panel EMPTY and do not add "brain Brain;".     */
 /*                                                                            */
@@ -59,20 +53,17 @@ using namespace vex;
 competition Competition;
 controller Controller1 = controller(primary);
 
-// 44W tank drive: two 11W motors per side.
-// Right side is reversed so positive power drives both sides forward.
-motor FrontLeft  = motor(PORT3,  ratio18_1, false);
-motor BackLeft   = motor(PORT11, ratio18_1, false);
-motor FrontRight = motor(PORT8,  ratio18_1, true);
-motor BackRight  = motor(PORT20, ratio18_1, true);
-motor_group LeftDrive  = motor_group(FrontLeft, BackLeft);
-motor_group RightDrive = motor_group(FrontRight, BackRight);
+// Right side is reversed so positive power drives every wheel "forward".
+motor FrontLeft  = motor(PORT10, ratio18_1, false);
+motor FrontRight = motor(PORT20, ratio18_1, true);
+motor BackLeft   = motor(PORT9,  ratio18_1, false);
+motor BackRight  = motor(PORT19, ratio18_1, true);
 
-inertial Inertial = inertial(PORT16);
+inertial Inertial = inertial(PORT12);
 
 // 22W cascade lift (two 11W motors). If they fight each other, flip one true/false.
-motor LiftMotorA = motor(PORT1,  ratio18_1, false);
-motor LiftMotorB = motor(PORT10, ratio18_1, true);
+motor LiftMotorA = motor(PORT1, ratio18_1, false);
+motor LiftMotorB = motor(PORT2, ratio18_1, true);
 motor_group Lift = motor_group(LiftMotorA, LiftMotorB);
 
 digital_out Claw = digital_out(Brain.ThreeWirePort.A);
@@ -80,8 +71,8 @@ digital_out Claw = digital_out(Brain.ThreeWirePort.A);
 // Side toggle mechanisms: one 5.5W motor on each side of the robot.
 // (5.5W motors always run at 200 RPM, so ratio18_1 is correct for them.)
 // If one spins the wrong way, flip its true/false.
-motor ToggleLeft  = motor(PORT2, ratio18_1, false);
-motor ToggleRight = motor(PORT9, ratio18_1, true);
+motor ToggleLeft  = motor(PORT3, ratio18_1, false);
+motor ToggleRight = motor(PORT4, ratio18_1, true);
 
 /*---------------------------------------------------------------------------*/
 /*                         NUMBERS TO TUNE                                   */
@@ -89,11 +80,6 @@ motor ToggleRight = motor(PORT9, ratio18_1, true);
 
 // ---- Driver ----
 const int DEADBAND = 5;
-
-// Drive, lift (driver) and side toggles are driven by voltage: 100% = 12 V.
-// Voltage is open loop, so the auton minimum powers below are higher than
-// they would be with percent velocity.
-const double VOLTS_PER_PERCENT = 12.0 / 100.0;
 
 // ---- Side toggles ----
 const int    TOGGLE_SPEED = 100;            // percent (5.5W motors are weak)
@@ -108,8 +94,10 @@ const double WHEEL_DIAMETER = 3.25;     // inches. MEASURE YOUR WHEELS.
 // If it is the other way round (60 on the motor), swap to 60.0 / 36.0.
 const double DRIVE_GEAR_RATIO = 36.0 / 60.0;
 const double FORWARD_SCALE  = 1.0;      // raise if the robot drives short
-// Flip either of these to -1 if the robot drives or turns the wrong way.
-const double DRIVE_SIGN  =  1;
+const double STRAFE_SCALE   = 1.0;      // raise if the robot strafes short
+// These match the directions the team settled on in driver control.
+const double DRIVE_SIGN  = -1;          // forward/back is inverted
+const double STRAFE_SIGN =  1;
 const double TURN_SIGN   =  1;
 
 // ---- Robot shape (inches / degrees) ----
@@ -117,11 +105,8 @@ const double TURN_SIGN   =  1;
 const double CLAW_ANGLE        = 0;     // the claw is on the front
 const double TOGGLE_MECH_ANGLE = AUTON_TOGGLE_ON_RIGHT ? 90 : 270;  // side put against the wall
 const double CLAW_REACH        = 12;    // robot centre -> middle of the claw
-const double START_WALL_DIST   = 9;     // robot centre -> wall at the start (back on the wall)
-// Robot centre -> wall while flipping. Must be at least 14 so an 18" robot
-// can turn there without its corners hitting the wall; the side toggle has
-// to reach the field Toggle from this far out (about 5" past the robot's side).
-const double TOGGLE_WALL_DIST  = 14;
+const double START_WALL_DIST   = 9;     // robot centre -> wall at the start
+const double TOGGLE_WALL_DIST  = 9;     // robot centre -> wall while flipping
 const double WALL_CLEARANCE    = 8;     // how far to pull off the wall after
 const double BACKOFF           = 5;     // line up this far back, then creep in
 
@@ -142,14 +127,12 @@ const int    RELEASE_MS     = 200;      // time for the claw to open
 // ---- Autonomous driving ----
 const double FAST = 90;                 // percent
 const double SLOW = 40;
-const double TURN_SPEED = 75;           // percent, cap for turns on the spot
-const double MOVE_KP = 15.0;            // percent per inch of error
-const double MOVE_KD = 0.05;
-const double TURN_KP = 3.5;             // percent per degree of error
-const double TURN_KD = 0.05;
-const double MIN_MOVE = 20;             // smallest power that still moves (voltage)
-const double MIN_TURN = 15;             // raise if turns stall just short of the angle
-const double DRIVE_STEER_KP = 1.0;      // heading correction while driving
+const double MOVE_KP = 6.0;             // percent per inch of error
+const double MOVE_KD = 0.15;
+const double TURN_KP = 2.0;             // percent per degree of error
+const double TURN_KD = 0.10;
+const double MIN_MOVE = 10;             // smallest power that still moves
+const double MIN_TURN = 6;
 const double PASS_SPEED = 30;           // speed carried through a waypoint
 const double SLEW = 4;                  // max power change per 10 ms
 const double POS_TOL = 1.0;             // inches
@@ -219,9 +202,10 @@ bool blueAlliance = false;      // picked on the brain screen
 bool sideQuadrant = false;      // false = start by your alliance station
 int  routine = R_TOGGLE;
 bool selectorDirty = true;
-bool imuReady = false;          // set at the end of pre_auton, after calibrating
 
+bool fieldCentric = true;
 bool clawClosed = false;
+double driverZero = 0;          // heading that counts as "away from the driver"
 
 int nowMs() {
   return (int)Brain.Timer.time(msec);
@@ -240,34 +224,37 @@ double wrap180(double a) {
 /*---------------------------------------------------------------------------*/
 /*                                 Drive                                     */
 /*---------------------------------------------------------------------------*/
-// forward and turn (clockwise) are -100..100 percent.
-void tankDrive(double forward, double turn) {
-  forward = DRIVE_SIGN * forward;
-  turn    = TURN_SIGN  * turn;
+// drive = forward, strafe = right, turn = clockwise, all -100..100 percent
+void xDrive(double drive, double strafe, double turn) {
+  drive  = DRIVE_SIGN  * drive;
+  strafe = STRAFE_SIGN * strafe;
+  turn   = TURN_SIGN   * turn;
 
-  double left  = forward + turn;
-  double right = forward - turn;
+  double fl = drive + strafe + turn;
+  double fr = drive - strafe - turn;
+  double bl = drive - strafe + turn;
+  double br = drive + strafe - turn;
 
-  // Scale both sides down together if either is asked for more than 100%.
-  double maxPower = std::fmax(std::fabs(left), std::fabs(right));
+  double maxPower = std::fmax(std::fmax(std::fabs(fl), std::fabs(fr)),
+                              std::fmax(std::fabs(bl), std::fabs(br)));
   if (maxPower > 100) {
-    left  = left  / maxPower * 100;
-    right = right / maxPower * 100;
+    fl = fl / maxPower * 100;
+    fr = fr / maxPower * 100;
+    bl = bl / maxPower * 100;
+    br = br / maxPower * 100;
   }
 
-  LeftDrive.spin(fwd, left * VOLTS_PER_PERCENT, volt);
-  RightDrive.spin(fwd, right * VOLTS_PER_PERCENT, volt);
+  FrontLeft.spin(fwd, fl, percent);
+  FrontRight.spin(fwd, fr, percent);
+  BackLeft.spin(fwd, bl, percent);
+  BackRight.spin(fwd, br, percent);
 }
 
-// Speed (percent) a passThrough driveTo was still rolling at when it handed
-// over, so the next move carries on from there instead of from a standstill.
-double carriedSpeed = 0;
-bool   carriedBackwards = false;
-
 void stopDrive() {
-  LeftDrive.stop(brake);
-  RightDrive.stop(brake);
-  carriedSpeed = 0;
+  FrontLeft.stop(brake);
+  FrontRight.stop(brake);
+  BackLeft.stop(brake);
+  BackRight.stop(brake);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -275,41 +262,44 @@ void stopDrive() {
 /*---------------------------------------------------------------------------*/
 double robotX = 0, robotY = 0;      // inches, field coordinates
 double headingOffset = 0;
-double prevLeft = 0, prevRight = 0, prevHeading = 0;
+double prevFL = 0, prevFR = 0, prevBL = 0, prevBR = 0, prevHeading = 0;
 
 // Field heading in degrees, clockwise, not wrapped.
 double robotHeading() {
   return Inertial.rotation(degrees) + headingOffset;
 }
 
-double leftDeg()  { return (FrontLeft.position(degrees)  + BackLeft.position(degrees))  / 2.0; }
-double rightDeg() { return (FrontRight.position(degrees) + BackRight.position(degrees)) / 2.0; }
-
 void setPose(double x, double y, double heading) {
   robotX = x;
   robotY = y;
   headingOffset = heading - Inertial.rotation(degrees);
   prevHeading = heading;
-  prevLeft = leftDeg();
-  prevRight = rightDeg();
+  prevFL = FrontLeft.position(degrees);
+  prevFR = FrontRight.position(degrees);
+  prevBL = BackLeft.position(degrees);
+  prevBR = BackRight.position(degrees);
 }
 
-// Distance comes from the drive encoders, direction from the inertial.
 void updateOdometry() {
-  double l = leftDeg();
-  double r = rightDeg();
-  double dL = l - prevLeft, dR = r - prevRight;
-  prevLeft = l; prevRight = r;
+  double fl = FrontLeft.position(degrees);
+  double fr = FrontRight.position(degrees);
+  double bl = BackLeft.position(degrees);
+  double br = BackRight.position(degrees);
+  double dFL = fl - prevFL, dFR = fr - prevFR, dBL = bl - prevBL, dBR = br - prevBR;
+  prevFL = fl; prevFR = fr; prevBL = bl; prevBR = br;
 
-  double inchesPerDegree = M_PI * WHEEL_DIAMETER / 360.0 * DRIVE_GEAR_RATIO;
-  double ahead = DRIVE_SIGN * (dL + dR) / 2.0 * inchesPerDegree * FORWARD_SCALE;
+  // X-drive wheels sit at 45 degrees, so the robot travels sqrt(2) times
+  // as far as each wheel rolls.
+  double inchesPerDegree = M_PI * WHEEL_DIAMETER / 360.0 * DRIVE_GEAR_RATIO * 1.41421356;
+  double ahead  = DRIVE_SIGN  * (dFL + dFR + dBL + dBR) / 4.0 * inchesPerDegree * FORWARD_SCALE;
+  double across = STRAFE_SIGN * (dFL - dFR - dBL + dBR) / 4.0 * inchesPerDegree * STRAFE_SCALE;
 
   double heading = robotHeading();
   double mid = (heading + prevHeading) / 2.0 * M_PI / 180.0;
   prevHeading = heading;
 
-  robotX += ahead * std::sin(mid);
-  robotY += ahead * std::cos(mid);
+  robotX += ahead * std::sin(mid) + across * std::cos(mid);
+  robotY += ahead * std::cos(mid) - across * std::sin(mid);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -368,120 +358,71 @@ double fieldDir(double dir) {
   return dir;
 }
 
-void checkAbort() {
-  if (testRun && Controller1.ButtonDown.pressing()) {
-    autonDeadline = 0;
-  }
-}
-
-// Turn on the spot to a field heading.
-void turnTo(double th, double maxSpeed, int timeoutMs) {
+// Drive to a field position and heading, all three at once.
+// passThrough = slow down but don't stop and settle, just get close and carry on.
+void moveField(double tx, double ty, double th, double maxSpeed, int timeoutMs, bool passThrough) {
   if (timeLeft() <= 0) return;
   int end = nowMs() + timeoutMs;
+  double lastSpeed = 0;
+  double prevDist = std::sqrt((tx - robotX) * (tx - robotX) + (ty - robotY) * (ty - robotY));
   double prevErr = wrap180(th - robotHeading());
   int settled = 0;
+  double posTol = passThrough ? 3.0 : POS_TOL;
+  double headTol = passThrough ? 10.0 : HEAD_TOL;
+
   while (nowMs() < end && timeLeft() > 0) {
     updateOdometry();
-    checkAbort();
-    double err = wrap180(th - robotHeading());
-    if (std::fabs(err) < HEAD_TOL) {
+    if (testRun && Controller1.ButtonDown.pressing()) {
+      autonDeadline = 0;
+    }
+
+    double ex = tx - robotX;
+    double ey = ty - robotY;
+    double dist = std::sqrt(ex * ex + ey * ey);
+    double headErr = wrap180(th - robotHeading());
+
+    if (dist < posTol && std::fabs(headErr) < headTol) {
+      if (passThrough) break;
       settled += 10;
       if (settled >= SETTLE_MS) break;
     } else {
       settled = 0;
     }
-    double turn = TURN_KP * err + TURN_KD * (err - prevErr) / 0.010;
-    prevErr = err;
-    if (turn > maxSpeed) turn = maxSpeed;
-    if (turn < -maxSpeed) turn = -maxSpeed;
-    if (std::fabs(err) > HEAD_TOL && std::fabs(turn) < MIN_TURN) {
-      turn = (err > 0) ? MIN_TURN : -MIN_TURN;
-    }
-    tankDrive(0, turn);
-    wait(10, msec);
-  }
-  stopDrive();
-}
 
-// Drive to a field point: turn to face it, then drive with heading
-// correction. Goes backwards if the point is behind the robot, so backing
-// away from a goal doesn't need a U-turn.
-// passThrough = don't stop at the end, just get close and carry on.
-// timeoutMs is for the driving part; the turn first gets its own time.
-void driveTo(double tx, double ty, double maxSpeed, int timeoutMs, bool passThrough) {
-  if (timeLeft() <= 0) return;
-  double posTol = passThrough ? 3.0 : POS_TOL;
-
-  double ex = tx - robotX, ey = ty - robotY;
-  if (std::sqrt(ex * ex + ey * ey) < posTol) return;
-  double err = wrap180(std::atan2(ex, ey) * 180.0 / M_PI - robotHeading());
-  bool backwards = std::fabs(err) > 90;
-  if (backwards) err = wrap180(err + 180);
-  if (std::fabs(err) > 15) {
-    turnTo(robotHeading() + err, TURN_SPEED, 1500);
-  }
-  int end = nowMs() + timeoutMs;
-
-  // Keep rolling from a passThrough move that was going the same way
-  // (turnTo above calls stopDrive, which clears carriedSpeed).
-  double lastSpeed = (carriedSpeed > 0 && carriedBackwards == backwards) ? carriedSpeed : 0;
-  carriedSpeed = 0;
-  double prevAlong = 1e9;
-  while (nowMs() < end && timeLeft() > 0) {
-    updateOdometry();
-    checkAbort();
-    ex = tx - robotX;
-    ey = ty - robotY;
-    double dist = std::sqrt(ex * ex + ey * ey);
-    double aim = std::atan2(ex, ey) * 180.0 / M_PI + (backwards ? 180 : 0);
-    err = wrap180(aim - robotHeading());
-    double along = dist * std::cos(err * M_PI / 180.0);   // distance left along the robot
-    if (along < posTol) break;                             // arrived (or just passed it)
-
-    double speed = MOVE_KP * along;
-    if (prevAlong < 1e8) speed += MOVE_KD * (along - prevAlong) / 0.010;
-    prevAlong = along;
+    double speed = MOVE_KP * dist + MOVE_KD * (dist - prevDist) / 0.010;
     if (passThrough && speed < PASS_SPEED) speed = PASS_SPEED;   // keep rolling
     if (speed > maxSpeed) speed = maxSpeed;
     if (speed > lastSpeed + SLEW) speed = lastSpeed + SLEW;
-    if (speed < MIN_MOVE) speed = MIN_MOVE;
+    if (dist > posTol && speed < MIN_MOVE) speed = MIN_MOVE;
+    if (dist <= posTol * 0.5 || speed < 0) speed = 0;
     lastSpeed = speed;
+    prevDist = dist;
 
-    // Steer toward the point, but not in the last few inches where the
-    // angle to it swings about.
-    double turn = (dist > 6) ? DRIVE_STEER_KP * err : 0;
-    if (turn > 40) turn = 40;
-    if (turn < -40) turn = -40;
+    double turn = TURN_KP * headErr + TURN_KD * (headErr - prevErr) / 0.010;
+    prevErr = headErr;
+    if (turn > maxSpeed) turn = maxSpeed;
+    if (turn < -maxSpeed) turn = -maxSpeed;
+    if (std::fabs(headErr) > headTol && std::fabs(turn) < MIN_TURN) {
+      turn = (headErr > 0) ? MIN_TURN : -MIN_TURN;
+    }
 
-    tankDrive(backwards ? -speed : speed, turn);
+    // Turn the field direction into the robot's own forward / right.
+    double h = robotHeading() * M_PI / 180.0;
+    double ahead = 0, across = 0;
+    if (dist > 0.01) {
+      ahead  = (ex * std::sin(h) + ey * std::cos(h)) / dist * speed;
+      across = (ex * std::cos(h) - ey * std::sin(h)) / dist * speed;
+    }
+    xDrive(ahead, across, turn);
     wait(10, msec);
   }
-  if (passThrough) {
-    carriedSpeed = lastSpeed;
-    carriedBackwards = backwards;
-  } else {
-    stopDrive();
-  }
-}
-
-// Drive to a field point, then (unless passThrough) turn to a heading.
-void moveField(double tx, double ty, double th, double maxSpeed, int timeoutMs, bool passThrough) {
-  if (timeLeft() <= 0) return;
-  driveTo(tx, ty, maxSpeed, timeoutMs, passThrough);
-  if (!passThrough) {
-    turnTo(th, TURN_SPEED, 1500);
-  }
+  if (!passThrough) stopDrive();
 }
 
 // Go to a routine point with a chosen side of the robot (mechAngle) facing
 // the routine direction faceDir.
 void goTo(double cx, double cy, double faceDir, double mechAngle, double speed, int timeoutMs, bool passThrough) {
   moveField(fieldX(cx, cy), fieldY(cx, cy), fieldDir(faceDir) - mechAngle, speed, timeoutMs, passThrough);
-}
-
-// Drive to a routine point and stop there, without turning afterwards.
-void driveToPoint(double cx, double cy, double speed, int timeoutMs) {
-  driveTo(fieldX(cx, cy), fieldY(cx, cy), speed, timeoutMs, false);
 }
 
 // Stand "reach" inches from a target, on its fromDir side, with one side of
@@ -516,7 +457,7 @@ void flipToggle(bool reverseIt) {
   motor &side = AUTON_TOGGLE_ON_RIGHT ? ToggleRight : ToggleLeft;
   double startPos = side.position(degrees);
   int start = nowMs();
-  side.spin(reverseIt ? reverse : fwd, TOGGLE_SPEED * VOLTS_PER_PERCENT, volt);
+  side.spin(reverseIt ? reverse : fwd, TOGGLE_SPEED, percent);
   while (std::fabs(side.position(degrees) - startPos) < TOGGLE_FLIP_DEGREES &&
          nowMs() - start < TOGGLE_AUTON_TIMEOUT_MS && timeLeft() > 0) {
     waitMs(10);
@@ -524,9 +465,8 @@ void flipToggle(bool reverseIt) {
   side.stop(hold);
 }
 
-// Flip the Toggle of the current quadrant: stand TOGGLE_WALL_DIST off the
-// wall with the toggle side facing it, flip, then drive away (a Toggle only
-// counts when no robot touches it).
+// Flip the Toggle of the current quadrant, then pull off the wall (a Toggle
+// only counts when no robot touches it).
 void doToggle(bool wantBlue, bool alreadyAtWall) {
   if (!alreadyAtWall) {
     standOff(TOGGLE_X, TOGGLE_Y, 90, TOGGLE_WALL_DIST + WALL_CLEARANCE, TOGGLE_MECH_ANGLE, FAST, 3000, true);
@@ -541,40 +481,32 @@ void grabAt(double tx, double ty, double fromDir, double height) {
   if (timeLeft() <= 0) return;
   autonClaw(false);
   liftTo(height, false);
-  standOff(tx, ty, fromDir, CLAW_REACH + BACKOFF, CLAW_ANGLE, FAST, 2500, false);
+  standOff(tx, ty, fromDir, CLAW_REACH + BACKOFF, CLAW_ANGLE, FAST, 2500, true);
   liftTo(height, true);
   standOff(tx, ty, fromDir, CLAW_REACH, CLAW_ANGLE, SLOW, 1500, false);
   autonClaw(true);
   waitMs(GRAB_MS);
   liftTo(height + H_LIFT_OFF, true);
-  // Back off the full BACKOFF and stop, so the next turn has room.
-  standOff(tx, ty, fromDir, CLAW_REACH + BACKOFF, CLAW_ANGLE, SLOW, 1000, false);
+  standOff(tx, ty, fromDir, CLAW_REACH + BACKOFF, CLAW_ANGLE, SLOW, 1000, true);
 }
 
 // Put what the claw is holding onto a goal (or onto the stack on it).
 void placeOn(double gx, double gy, double fromDir, double height) {
   if (timeLeft() <= 0) return;
   liftTo(height + H_LIFT_OFF, false);
-  standOff(gx, gy, fromDir, CLAW_REACH + BACKOFF, CLAW_ANGLE, FAST, 2500, false);
+  standOff(gx, gy, fromDir, CLAW_REACH + BACKOFF, CLAW_ANGLE, FAST, 2500, true);
   liftTo(height + H_LIFT_OFF, true);
   standOff(gx, gy, fromDir, CLAW_REACH, CLAW_ANGLE, SLOW, 1500, false);
   liftTo(height, true);
   autonClaw(false);
   waitMs(RELEASE_MS);
-  // Back off the full BACKOFF and stop, so the next turn has room.
-  standOff(gx, gy, fromDir, CLAW_REACH + BACKOFF, CLAW_ANGLE, SLOW, 1000, false);
+  standOff(gx, gy, fromDir, CLAW_REACH + BACKOFF, CLAW_ANGLE, SLOW, 1000, true);
   liftTo(H_CARRY, false);
 }
 
 void finishAuton() {
   stopDrive();
   stopToggles();
-  // Let a lift move that is still going (e.g. down to H_CARRY after the
-  // last placeOn) finish, instead of freezing the lift where it is.
-  int end = nowMs() + 1000;
-  while (!Lift.isDone() && nowMs() < end && !(testRun && Controller1.ButtonDown.pressing())) {
-    wait(10, msec);
-  }
   Lift.stop(hold);
 }
 
@@ -582,26 +514,16 @@ void finishAuton() {
 /*              Working in the corner by a wall stack                        */
 /*---------------------------------------------------------------------------*/
 // The wall stack and the goal beside it are only 21" apart, so the robot
-// must not turn on the spot right next to them.
-// Grabbing: line up further out on the same line the claw goes in on, so it
-// turns there (about 15" from the goal) and then drives straight in and
-// straight back out.
-// Placing: there is no room on that line (it runs into the wall), so the
-// robot turns at an open "stage" spot first.
+// spins at an open "stage" spot first and then slides in without turning.
 // allianceSide = the stack / goal pair on the alliance-goal side of the Toggle.
-
-// Robot centre -> wall stack while lining up to grab it.
-const double CORNER_LINEUP = CLAW_REACH + BACKOFF + 6;
 
 void cornerGrab(bool allianceSide, double height) {
   if (timeLeft() <= 0) return;
   double dir = allianceSide ? DIR_WALL_A : DIR_WALL_N;
-  double sx = allianceSide ? WALL_A_X : WALL_N_X;
-  double sy = allianceSide ? WALL_A_Y : WALL_N_Y;
-  standOff(sx, sy, dir, CORNER_LINEUP, CLAW_ANGLE, FAST, 2500, false);
-  grabAt(sx, sy, dir, height);
-  // Back straight out along the same line before anything turns.
-  standOff(sx, sy, dir, CORNER_LINEUP, CLAW_ANGLE, FAST, 1500, false);
+  goTo(STAGE_X, allianceSide ? STAGE_A_Y : STAGE_N_Y, dir + 180, CLAW_ANGLE, FAST, 2500, false);
+  grabAt(allianceSide ? WALL_A_X : WALL_N_X, allianceSide ? WALL_A_Y : WALL_N_Y, dir, height);
+  // Back out to the open spot before anything turns.
+  goTo(STAGE_X, allianceSide ? STAGE_A_Y : STAGE_N_Y, dir + 180, CLAW_ANGLE, FAST, 1500, true);
 }
 
 void cornerPlace(bool allianceSide, double height) {
@@ -609,7 +531,7 @@ void cornerPlace(bool allianceSide, double height) {
   double dir = allianceSide ? DIR_GOAL_A_WALL : DIR_GOAL_N_WALL;
   goTo(STAGE_X, allianceSide ? STAGE_A_Y : STAGE_N_Y, dir + 180, CLAW_ANGLE, FAST, 2500, false);
   placeOn(allianceSide ? GOAL_A_X : GOAL_N_X, allianceSide ? GOAL_A_Y : GOAL_N_Y, dir, height);
-  driveToPoint(STAGE_X, allianceSide ? STAGE_A_Y : STAGE_N_Y, FAST, 1500);
+  goTo(STAGE_X, allianceSide ? STAGE_A_Y : STAGE_N_Y, dir + 180, CLAW_ANGLE, FAST, 1500, true);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -663,7 +585,7 @@ void matchRoutine(int which) {
 // Starts in the quadrant by the red station (rule RSC2). Works the two red
 // quadrants, then parks in the Midfield. Goals start empty in skills.
 void skillsRoutine() {
-  const int PARK_MS = 6500;       // always keep this much for the Midfield
+  const int PARK_MS = 4000;       // always keep this much for the Midfield
   bool innerStackTaken = false;
 
   // ---- Red quadrant by the station ----
@@ -688,11 +610,6 @@ void skillsRoutine() {
   // ---- Cross to the other red quadrant (bottom wall) ----
   if (timeLeft() > PARK_MS + 10000) {
     goTo(-37, -9, 180, TOGGLE_MECH_ANGLE, FAST, 2500, true);
-    if (!innerStackTaken) {
-      // The straight line to (-10, -40) runs through the inner stack, so go
-      // round it while it is still there.
-      goTo(-8, -9, 180, TOGGLE_MECH_ANGLE, FAST, 2500, true);
-    }
     goTo(-10, -40, 180, TOGGLE_MECH_ANGLE, FAST, 2500, true);
     tfMirror = true;              // same moves, mirrored onto the bottom wall
     doToggle(false, false);
@@ -718,23 +635,22 @@ void skillsRoutine() {
 
   // ---- Park: any part of the robot inside the Midfield diamond is 8 ----
   liftTo(H_CARRY, false);
-  // Waypoint first so the path stays clear of the inner field stack.
-  driveTo(-36, -6, FAST, 2500, true);
-  driveTo(-13, -11, FAST, 3000, false);
+  moveField(-13, -13, robotHeading(), FAST, 3000, true);
+  moveField(-9, -9, robotHeading(), SLOW, 1500, false);
 }
 
 /*---------------------------------------------------------------------------*/
 /*                              Test routine                                 */
 /*---------------------------------------------------------------------------*/
-// Forward 24", turn right, forward 24", then back to the start facing forward.
+// Forward 24", right 24", turn 90 clockwise, then back to where it started.
 void testRoutine() {
   moveField(0, 24, 0, 60, 4000, false);
   waitMs(500);
-  turnTo(90, TURN_SPEED, 2000);
+  moveField(24, 24, 0, 60, 4000, false);
   waitMs(500);
-  moveField(24, 24, 90, 60, 4000, false);
+  moveField(24, 24, 90, 60, 3000, false);
   waitMs(500);
-  moveField(0, 0, 0, 60, 6000, false);
+  moveField(0, 0, 0, 60, 5000, false);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -745,12 +661,6 @@ void runSelectedRoutine() {
   int budget = (which == R_SKILLS) ? 60000 : 15000;
   if (which == R_TEST) budget = 30000;
   autonDeadline = nowMs() + budget - 250;     // stop a touch early
-
-  // If the robot was only just switched on, the inertial may still be
-  // calibrating. Wait for it, or pre_auton would reset the pose mid-run.
-  while (!imuReady) {
-    wait(10, msec);
-  }
 
   if (which == R_TEST) {
     tfBlue = false;
@@ -765,10 +675,12 @@ void runSelectedRoutine() {
   tfBlue = (which == R_SKILLS) ? false : blueAlliance;
   tfMirror = (which == R_SKILLS) ? false : sideQuadrant;
 
-  // Start: back against the wall under the Toggle, facing into the field.
+  // Start: against the wall under the Toggle, toggle mechanism at the wall.
   setPose(fieldX(TOGGLE_X + START_WALL_DIST, TOGGLE_Y),
           fieldY(TOGGLE_X + START_WALL_DIST, TOGGLE_Y),
-          fieldDir(90));
+          fieldDir(270) - TOGGLE_MECH_ANGLE);
+  // Drivers stand at their station, so "away from the driver" is known now.
+  driverZero = tfBlue ? 270 : 90;
 
   if (which == R_SKILLS) {
     skillsRoutine();
@@ -810,11 +722,8 @@ void drawSelector() {
 }
 
 void onScreenPressed() {
-  // Locked while an autonomous routine or an X+Y test-run is running.
-  // (testRun only counts in driver control: if a test-run was cut off by
-  // plugging into the field, the selector must still work while disabled.)
-  if (Competition.isEnabled() &&
-      (Competition.isAutonomous() || (testRun && Competition.isDriverControl()))) {
+  // Locked while an autonomous routine is running.
+  if (testRun || (Competition.isEnabled() && Competition.isAutonomous())) {
     return;
   }
   int x = Brain.Screen.xPosition();
@@ -841,7 +750,7 @@ void showStatus() {
   Brain.Screen.setFillColor(color::black);
   Brain.Screen.printAt(10, 150, true, "X %6.1f  Y %6.1f  Heading %6.1f     ", robotX, robotY, robotHeading());
   Brain.Screen.printAt(10, 175, true, "Lift %5.0f deg   Claw %s     ", LiftMotorA.position(degrees), clawClosed ? "closed" : "open  ");
-  Brain.Screen.printAt(10, 200, true, "Side toggles: left(2) %s  right(9) %s   ",
+  Brain.Screen.printAt(10, 200, true, "Side toggles: left(3) %s  right(4) %s   ",
                        ToggleLeft.installed() ? "ok" : "MISSING", ToggleRight.installed() ? "ok" : "MISSING");
   Brain.Screen.printAt(10, 225, true, "Toggle deg  L %6.0f  R %6.0f      ",
                        ToggleLeft.position(degrees), ToggleRight.position(degrees));
@@ -866,7 +775,6 @@ void pre_auton(void) {
   Brain.Screen.clearScreen();
   setPose(0, 0, 0);
   selectorDirty = true;
-  imuReady = true;
 }
 
 /*---------------------------------------------------------------------------*/
@@ -875,22 +783,25 @@ void pre_auton(void) {
 void showDriveMode() {
   Controller1.Screen.clearLine(1);
   Controller1.Screen.setCursor(1, 1);
-  Controller1.Screen.print("93601V tank drive");
+  Controller1.Screen.print(fieldCentric ? "Field-centric" : "Robot-centric");
+}
+
+void toggleFieldCentric() {
+  fieldCentric = !fieldCentric;
+  showDriveMode();
+}
+
+// B: whichever way the robot faces now becomes "away from the driver".
+void resetHeading() {
+  driverZero = robotHeading();
+  Controller1.rumble(".");
 }
 
 void usercontrol(void) {
-  // Make sure nothing from autonomous or a cut-off test-run is still running.
+  // Make sure nothing from autonomous is still running.
   autonDeadline = 0;
-  testRun = false;
-  selectorDirty = true;
   stopToggles();
   showDriveMode();
-
-  // Without a field or switch, driver control starts while the inertial is
-  // still calibrating. Moving the robot then would spoil the calibration.
-  while (!imuReady) {
-    wait(20, msec);
-  }
 
   while (true) {
     updateOdometry();
@@ -903,29 +814,33 @@ void usercontrol(void) {
       testRun = false;
       autonDeadline = 0;
       selectorDirty = true;
-      // Wait for X and Y to be let go, so one press runs the routine once
-      // and an abort with Down stays aborted.
-      while (Controller1.ButtonX.pressing() || Controller1.ButtonY.pressing()) {
-        stopDrive();
-        wait(20, msec);
-      }
     }
 
-    // Arcade: left stick up/down drives, right stick left/right turns.
-    double forward = applyDeadband(Controller1.Axis3.position());
-    double turn    = applyDeadband(Controller1.Axis1.position());
+    double drive  = applyDeadband(Controller1.Axis3.position());
+    double strafe = applyDeadband(Controller1.Axis4.position());
+    double turn   = applyDeadband(Controller1.Axis1.position());
 
-    if (forward == 0 && turn == 0) {
+    if (fieldCentric) {
+      // Rotate the joystick input by the robot's heading so "up" on the
+      // stick always drives away from the driver.
+      double headingRad = (robotHeading() - driverZero) * M_PI / 180.0;
+      double rotDrive  =  drive * std::cos(headingRad) + strafe * std::sin(headingRad);
+      double rotStrafe = -drive * std::sin(headingRad) + strafe * std::cos(headingRad);
+      drive  = rotDrive;
+      strafe = rotStrafe;
+    }
+
+    if (drive == 0 && strafe == 0 && turn == 0) {
       stopDrive();
     } else {
-      tankDrive(forward, turn);
+      xDrive(drive, strafe, turn);
     }
 
     // Lift: hold L1 to go up, L2 to go down, holds position when released.
     if (Controller1.ButtonL1.pressing()) {
-      Lift.spin(fwd, LIFT_SPEED * VOLTS_PER_PERCENT, volt);
+      Lift.spin(fwd, 100, percent);
     } else if (Controller1.ButtonL2.pressing()) {
-      Lift.spin(reverse, LIFT_SPEED * VOLTS_PER_PERCENT, volt);
+      Lift.spin(reverse, 100, percent);
     } else {
       Lift.stop(hold);
     }
@@ -933,11 +848,11 @@ void usercontrol(void) {
     // Side toggles: hold R2 to spin both. Hold the Up arrow to spin both
     // the other way.
     if (Controller1.ButtonR2.pressing()) {
-      ToggleLeft.spin(fwd, TOGGLE_SPEED * VOLTS_PER_PERCENT, volt);
-      ToggleRight.spin(fwd, TOGGLE_SPEED * VOLTS_PER_PERCENT, volt);
+      ToggleLeft.spin(fwd, TOGGLE_SPEED, percent);
+      ToggleRight.spin(fwd, TOGGLE_SPEED, percent);
     } else if (Controller1.ButtonUp.pressing()) {
-      ToggleLeft.spin(reverse, TOGGLE_SPEED * VOLTS_PER_PERCENT, volt);
-      ToggleRight.spin(reverse, TOGGLE_SPEED * VOLTS_PER_PERCENT, volt);
+      ToggleLeft.spin(reverse, TOGGLE_SPEED, percent);
+      ToggleRight.spin(reverse, TOGGLE_SPEED, percent);
     } else {
       ToggleLeft.stop(hold);
       ToggleRight.stop(hold);
@@ -955,6 +870,8 @@ int main() {
 
   // Registered here, not in usercontrol, so each press only fires once
   // even when the field or switch restarts driver control.
+  Controller1.ButtonA.pressed(toggleFieldCentric);
+  Controller1.ButtonB.pressed(resetHeading);
   Controller1.ButtonR1.pressed(toggleClaw);
   Brain.Screen.pressed(onScreenPressed);
 

@@ -7,3 +7,6 @@ build/
 
 # Python
 __pycache__/
+
+# Made by the VEX extension on each computer (contains local paths)
+.vscode/c_cpp_properties.json

@@ -88,7 +88,9 @@ Newest entry first. Add a line whenever something changes or gets tested.
   Built with the VEX toolchain: same program size as the VEXcode build, no errors.
 - **26 Nov 2026:** Both tank programs built with VEXcode's own compiler: no
   errors or warnings. VS Code's red underlines were it not finding `vex.h`;
-  fixed with `.vscode/c_cpp_properties.json`.
+  the VEX extension sets that up itself once the repo is a VEX project (it
+  writes `.vscode/c_cpp_properties.json` on each computer; don't hand-edit it,
+  a wrong format stops downloads with "Cannot read properties of undefined").
 - **26 Nov 2026:** Side toggles slowed to 50% (`TOGGLE_SPEED`). Cleaned up
   `main`: old robot and X-drive code moved to the `deprecated` branch. Added
   `.github/copilot-instructions.md` so GitHub Copilot in VS Code knows the project.

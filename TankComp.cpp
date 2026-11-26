@@ -8,7 +8,8 @@
 /*      Inertial 16, Radio: any free port   Drive geared 36:60 (motor:wheel)  */
 /*      Lift 1, 10        Side toggles: left 2, right 9 (5.5W motors)         */
 /*      Claw piston: 3-wire port A                                            */
-/*      Drive, lift and side toggles run on voltage (12 V = full power).      */
+/*      Driver control runs the motors on voltage (12 V = full power); the   */
+/*      autons use closed-loop speed control so every run comes out the same. */
 /*                                                                            */
 /*    Driver controls:                                                        */
 /*      Left stick up/down = forward / back    Right stick X = turn           */
@@ -32,20 +33,25 @@
 /*      with the lift down and don't move the robot while the inertial        */
 /*      calibrates.                                                           */
 /*                                                                            */
-/*    TUNING ORDER (nothing below has been run on the real robot yet):        */
-/*      1. Push the left stick up: the robot must drive forward. If not,      */
-/*         set DRIVE_SIGN to -1. Push the right stick right: it must turn     */
-/*         clockwise. If not, set TURN_SIGN to -1. The autons need both       */
-/*         right or they will spin in circles.                                */
-/*      2. Run routine "TEST" with X+Y: forward 24", turn right, forward      */
-/*         24", then back to the start facing forward. If the distance is     */
-/*         wrong fix WHEEL_DIAMETER (or FORWARD_SCALE).                       */
-/*      3. Drive the lift by hand and read "Lift" on the brain screen to      */
+/*    TUNING ORDER (do these in order, robot on the field tiles):            */
+/*      0. The brain line "IMU" must say OK. If it says NOT FOUND, plug the   */
+/*         inertial into port 16. If it says "moved", tap CAL and keep the    */
+/*         robot still for 3 seconds.                                         */
+/*      1. Pick routine "CHECK ROBOT", press X+Y. It spins a little each way  */
+/*         and tells you if DRIVE_SIGN is wrong and what TRACK_WIDTH is.      */
+/*      2. "TUNE: DRIVE 48in": measure how far it really went (D inches),     */
+/*         then FORWARD_SCALE = FORWARD_SCALE x D / (distance it shows).      */
+/*      3. "TUNE: TURN 90 x4": it should end facing exactly where it started. */
+/*         If not, do the hand-turn test in HANDOFF.md to set IMU_SCALE.      */
+/*      4. "TEST (24in square)": should come back to where it started.        */
+/*      5. Drive the lift by hand and read "Lift" on the brain screen to      */
 /*         fill in every H_... height.                                        */
-/*      4. Measure CLAW_REACH and START_WALL_DIST, set AUTON_TOGGLE_ON_RIGHT, */
+/*      6. Measure CLAW_REACH and START_WALL_DIST, set AUTON_TOGGLE_ON_RIGHT, */
 /*         set TOGGLE_WALL_DIST so the side toggle reaches the field Toggle,  */
 /*         and tune TOGGLE_FLIP_DEGREES until one flip lands on your colour.  */
-/*      5. Tune one routine at a time, shortest first.                        */
+/*      7. Tune one routine at a time, shortest first.                        */
+/*    Tap CAL on the brain screen any time the robot is still to redo the     */
+/*    inertial calibration (not during an auton).                             */
 /*                                                                            */
 /*    Keep the VEXcode Devices panel EMPTY and do not add "brain Brain;".     */
 /*                                                                            */
@@ -90,13 +96,13 @@ motor ToggleRight = motor(PORT9, ratio18_1, true);
 // ---- Driver ----
 const int DEADBAND = 5;
 
-// Drive, lift (driver) and side toggles are driven by voltage: 100% = 12 V.
-// Voltage is open loop, so the auton minimum powers below are higher than
-// they would be with percent velocity.
+// Driver control and the side toggles are driven by voltage: 100% = 12 V.
+// The autons drive with closed-loop speed control instead (see autonDrive),
+// because voltage moves change with the battery level.
 const double VOLTS_PER_PERCENT = 12.0 / 100.0;
 
 // ---- Side toggles ----
-const int    TOGGLE_SPEED = 100;            // percent (5.5W motors are weak)
+const int    TOGGLE_SPEED = 50;             // percent. Lower = slower toggles
 const bool   AUTON_TOGGLE_ON_RIGHT = true;  // which side toggle the autons use
 const double TOGGLE_FLIP_DEGREES = 360;     // motor degrees for one auton flip. TUNE.
 const int    TOGGLE_AUTON_TIMEOUT_MS = 2000;
@@ -107,10 +113,24 @@ const double WHEEL_DIAMETER = 3.25;     // inches. MEASURE YOUR WHEELS.
 // wheel, so the wheel turns 0.6 times for every motor turn.
 // If it is the other way round (60 on the motor), swap to 60.0 / 36.0.
 const double DRIVE_GEAR_RATIO = 36.0 / 60.0;
-const double FORWARD_SCALE  = 1.0;      // raise if the robot drives short
-// Flip either of these to -1 if the robot drives or turns the wrong way.
+// Distance correction, from the "TUNE: DRIVE 48in" routine:
+//   new FORWARD_SCALE = old FORWARD_SCALE x real distance / distance it shows
+// (drove short -> the number goes DOWN; drove too far -> it goes UP).
+const double FORWARD_SCALE  = 1.0;
+// DRIVE_SIGN: set to -1 if pushing the left stick up drives the robot
+// backwards. "CHECK ROBOT" tests this for you with the inertial. The autons
+// only use DRIVE_SIGN, so if driving forward is right, auton turns are too.
 const double DRIVE_SIGN  =  1;
+// TURN_SIGN: driver control only. Set to -1 if the right stick turns the
+// robot the wrong way for the driver. It does not affect the autons.
 const double TURN_SIGN   =  1;
+// How wide the robot "turns", in inches (about the left-to-right wheel
+// spacing). Used to plan turn speeds, and to steer by the wheels if the
+// inertial stops working. "CHECK ROBOT" measures it: copy the number it shows.
+const double TRACK_WIDTH = 12.0;
+// Inertial correction, from the hand-turn test in HANDOFF.md:
+//   IMU_SCALE = 1800 / (how much "raw" went up after 5 full turns by hand)
+const double IMU_SCALE   = 1.0;
 
 // ---- Robot shape (inches / degrees) ----
 // Angles are measured clockwise from the FRONT of the robot, looking down.
@@ -143,17 +163,20 @@ const int    RELEASE_MS     = 200;      // time for the claw to open
 const double FAST = 90;                 // percent
 const double SLOW = 40;
 const double TURN_SPEED = 75;           // percent, cap for turns on the spot
-const double MOVE_KP = 15.0;            // percent per inch of error
-const double MOVE_KD = 0.05;
-const double TURN_KP = 3.5;             // percent per degree of error
-const double TURN_KD = 0.05;
-const double MIN_MOVE = 20;             // smallest power that still moves (voltage)
-const double MIN_TURN = 15;             // raise if turns stall just short of the angle
+// How hard a drive slows down as it reaches its spot, in inches per second
+// per second. Lower = gentler, more accurate stops; higher = quicker moves.
+const double DRIVE_DECEL = 40.0;
+// How hard a turn slows down as it reaches its angle, in degrees per second
+// per second. Lower = gentler, more accurate turns; higher = quicker turns.
+const double TURN_DECEL = 500.0;
+const double MIN_MOVE = 15;             // smallest speed used near the end of a drive
+const double MIN_TURN = 8;              // raise if turns stall just short of the angle
 const double DRIVE_STEER_KP = 1.0;      // heading correction while driving
 const double PASS_SPEED = 30;           // speed carried through a waypoint
 const double SLEW = 4;                  // max power change per 10 ms
-const double POS_TOL = 1.0;             // inches
-const double HEAD_TOL = 2.0;            // degrees
+const double POS_TOL = 0.5;             // inches: how close a drive must get
+const double CLOSE_ENOUGH = 1.0;        // inches: already this close -> skip the move
+const double HEAD_TOL = 1.0;            // degrees: how close a turn must get
 const int    SETTLE_MS = 80;
 
 // Skills: also put a third level on the first red goal.
@@ -198,7 +221,10 @@ const int R_WALL_STACK     = 5;
 const int R_FULL           = 6;
 const int R_SKILLS         = 7;
 const int R_TEST           = 8;
-const int ROUTINE_COUNT    = 9;
+const int R_CHECK          = 9;
+const int R_TUNE_DRIVE     = 10;
+const int R_TUNE_TURN      = 11;
+const int ROUTINE_COUNT    = 12;
 
 const char *routineName(int r) {
   switch (r) {
@@ -211,6 +237,9 @@ const char *routineName(int r) {
     case R_FULL:           return "FULL QUADRANT";
     case R_SKILLS:         return "SKILLS 60s";
     case R_TEST:           return "TEST (24in square)";
+    case R_CHECK:          return "CHECK ROBOT";
+    case R_TUNE_DRIVE:     return "TUNE: DRIVE 48in";
+    case R_TUNE_TURN:      return "TUNE: TURN 90 x4";
   }
   return "?";
 }
@@ -219,7 +248,14 @@ bool blueAlliance = false;      // picked on the brain screen
 bool sideQuadrant = false;      // false = start by your alliance station
 int  routine = R_TOGGLE;
 bool selectorDirty = true;
-bool imuReady = false;          // set at the end of pre_auton, after calibrating
+bool imuReady = false;          // false while the inertial is calibrating
+bool imuMovedWarning = false;   // the heading crept right after calibrating
+volatile bool calRequested = false;  // CAL tapped on the brain screen
+
+// Two lines of results shown at the bottom of the brain screen (from CHECK,
+// the TUNE routines, or a safety stop).
+char resultA[64] = "";
+char resultB[64] = "";
 
 bool clawClosed = false;
 
@@ -259,6 +295,25 @@ void tankDrive(double forward, double turn) {
   RightDrive.spin(fwd, right * VOLTS_PER_PERCENT, volt);
 }
 
+// Auton driving. Uses the motors' own speed control (percent velocity), so a
+// move comes out the same whatever the battery level, unlike voltage.
+// forward and turn are -100..100 percent; positive turn = clockwise.
+// Only DRIVE_SIGN is used (not TURN_SIGN): if driving forward is right, the
+// turns are right too.
+void autonDrive(double forward, double turn) {
+  double left  = DRIVE_SIGN * (forward + turn);
+  double right = DRIVE_SIGN * (forward - turn);
+
+  double maxPower = std::fmax(std::fabs(left), std::fabs(right));
+  if (maxPower > 100) {
+    left  = left  / maxPower * 100;
+    right = right / maxPower * 100;
+  }
+
+  LeftDrive.spin(fwd, left, percent);
+  RightDrive.spin(fwd, right, percent);
+}
+
 // Speed (percent) a passThrough driveTo was still rolling at when it handed
 // over, so the next move carries on from there instead of from a standstill.
 double carriedSpeed = 0;
@@ -274,40 +329,70 @@ void stopDrive() {
 /*      Odometry: where the robot is, from the inertial + wheel encoders     */
 /*---------------------------------------------------------------------------*/
 double robotX = 0, robotY = 0;      // inches, field coordinates
-double headingOffset = 0;
-double prevLeft = 0, prevRight = 0, prevHeading = 0;
+double fusedHeading = 0;            // field heading, degrees, clockwise, not wrapped
+double prevLeft = 0, prevRight = 0, prevImu = 0;
+bool   imuWasReadable = false;
+
+// True when the inertial is plugged in and not calibrating.
+bool imuReadable() {
+  return Inertial.installed() && !Inertial.isCalibrating();
+}
+
+// Inertial rotation in degrees (clockwise, not wrapped), with IMU_SCALE.
+double imuRotation() {
+  return Inertial.rotation(degrees) * IMU_SCALE;
+}
 
 // Field heading in degrees, clockwise, not wrapped.
 double robotHeading() {
-  return Inertial.rotation(degrees) + headingOffset;
+  return fusedHeading;
 }
 
 double leftDeg()  { return (FrontLeft.position(degrees)  + BackLeft.position(degrees))  / 2.0; }
 double rightDeg() { return (FrontRight.position(degrees) + BackRight.position(degrees)) / 2.0; }
 
+// Inches the robot moves per degree the drive motors turn.
+double inchesPerMotorDegree() {
+  return M_PI * WHEEL_DIAMETER / 360.0 * DRIVE_GEAR_RATIO * FORWARD_SCALE;
+}
+
 void setPose(double x, double y, double heading) {
   robotX = x;
   robotY = y;
-  headingOffset = heading - Inertial.rotation(degrees);
-  prevHeading = heading;
+  fusedHeading = heading;
   prevLeft = leftDeg();
   prevRight = rightDeg();
+  imuWasReadable = imuReadable();
+  if (imuWasReadable) prevImu = imuRotation();
 }
 
-// Distance comes from the drive encoders, direction from the inertial.
+// Distance comes from the drive encoders. Turning comes from the inertial;
+// if the inertial is unplugged or restarting, from the wheels instead, so a
+// loose cable doesn't send the robot off in a random direction.
 void updateOdometry() {
   double l = leftDeg();
   double r = rightDeg();
-  double dL = l - prevLeft, dR = r - prevRight;
-  prevLeft = l; prevRight = r;
+  double dL = (l - prevLeft)  * inchesPerMotorDegree() * DRIVE_SIGN;   // inches, left side
+  double dR = (r - prevRight) * inchesPerMotorDegree() * DRIVE_SIGN;   // inches, right side
+  prevLeft = l;
+  prevRight = r;
 
-  double inchesPerDegree = M_PI * WHEEL_DIAMETER / 360.0 * DRIVE_GEAR_RATIO;
-  double ahead = DRIVE_SIGN * (dL + dR) / 2.0 * inchesPerDegree * FORWARD_SCALE;
+  double wheelTurn = (dL - dR) / TRACK_WIDTH * 180.0 / M_PI;           // clockwise degrees
+  double turned = wheelTurn;
+  bool readable = imuReadable();
+  if (readable) {
+    double now = imuRotation();
+    if (imuWasReadable && std::fabs(now - prevImu) < 90) {
+      turned = now - prevImu;      // normal case: trust the inertial
+    }                              // else it just came back: start from here
+    prevImu = now;
+  }
+  imuWasReadable = readable;
 
-  double heading = robotHeading();
-  double mid = (heading + prevHeading) / 2.0 * M_PI / 180.0;
-  prevHeading = heading;
-
+  double before = fusedHeading;
+  fusedHeading += turned;
+  double mid = (before + fusedHeading) / 2.0 * M_PI / 180.0;
+  double ahead = (dL + dR) / 2.0;
   robotX += ahead * std::sin(mid);
   robotY += ahead * std::cos(mid);
 }
@@ -374,30 +459,52 @@ void checkAbort() {
   }
 }
 
+// Safety stop: the robot turned the opposite way to what it was told, so
+// DRIVE_SIGN or a drive motor's true/false is wrong. Stop the whole auton
+// instead of spinning out of control.
+void wrongWayStop() {
+  stopDrive();
+  autonDeadline = 0;
+  snprintf(resultA, sizeof(resultA), "STOPPED: robot turned the wrong way.");
+  snprintf(resultB, sizeof(resultB), "Run CHECK ROBOT to see what to fix.");
+  Controller1.rumble("...");
+}
+
 // Turn on the spot to a field heading.
 void turnTo(double th, double maxSpeed, int timeoutMs) {
   if (timeLeft() <= 0) return;
+  updateOdometry();
   int end = nowMs() + timeoutMs;
-  double prevErr = wrap180(th - robotHeading());
+  double startHeading = robotHeading();
+  double startErr = wrap180(th - startHeading);
+  // Turning speed (degrees per second) at 100%.
+  double topTurnRate = 2.0 * (200.0 * 360.0 / 60.0 * inchesPerMotorDegree()) / TRACK_WIDTH * 180.0 / M_PI;
   int settled = 0;
   while (nowMs() < end && timeLeft() > 0) {
     updateOdometry();
     checkAbort();
     double err = wrap180(th - robotHeading());
+    // How far it has turned towards the target (negative = the wrong way).
+    double progress = (robotHeading() - startHeading) * (startErr >= 0 ? 1 : -1);
+    if (std::fabs(startErr) > 5 && progress < -25) {
+      wrongWayStop();
+      return;
+    }
     if (std::fabs(err) < HEAD_TOL) {
+      // On target: hold still, and finish once it has stayed there.
       settled += 10;
       if (settled >= SETTLE_MS) break;
-    } else {
-      settled = 0;
+      autonDrive(0, 0);
+      wait(10, msec);
+      continue;
     }
-    double turn = TURN_KP * err + TURN_KD * (err - prevErr) / 0.010;
-    prevErr = err;
+    settled = 0;
+    // Speed from a stopping curve: fast while far off, then slowing evenly
+    // (TURN_DECEL) so it arrives slowly and stops on the angle.
+    double turn = std::sqrt(2.0 * TURN_DECEL * std::fabs(err)) / topTurnRate * 100.0;
     if (turn > maxSpeed) turn = maxSpeed;
-    if (turn < -maxSpeed) turn = -maxSpeed;
-    if (std::fabs(err) > HEAD_TOL && std::fabs(turn) < MIN_TURN) {
-      turn = (err > 0) ? MIN_TURN : -MIN_TURN;
-    }
-    tankDrive(0, turn);
+    if (turn < MIN_TURN) turn = MIN_TURN;
+    autonDrive(0, err > 0 ? turn : -turn);
     wait(10, msec);
   }
   stopDrive();
@@ -410,10 +517,12 @@ void turnTo(double th, double maxSpeed, int timeoutMs) {
 // timeoutMs is for the driving part; the turn first gets its own time.
 void driveTo(double tx, double ty, double maxSpeed, int timeoutMs, bool passThrough) {
   if (timeLeft() <= 0) return;
+  updateOdometry();
   double posTol = passThrough ? 3.0 : POS_TOL;
 
+  // Already (nearly) there: don't turn round just to creep an inch.
   double ex = tx - robotX, ey = ty - robotY;
-  if (std::sqrt(ex * ex + ey * ey) < posTol) return;
+  if (std::sqrt(ex * ex + ey * ey) < (passThrough ? posTol : CLOSE_ENOUGH)) return;
   double err = wrap180(std::atan2(ex, ey) * 180.0 / M_PI - robotHeading());
   bool backwards = std::fabs(err) > 90;
   if (backwards) err = wrap180(err + 180);
@@ -426,7 +535,6 @@ void driveTo(double tx, double ty, double maxSpeed, int timeoutMs, bool passThro
   // (turnTo above calls stopDrive, which clears carriedSpeed).
   double lastSpeed = (carriedSpeed > 0 && carriedBackwards == backwards) ? carriedSpeed : 0;
   carriedSpeed = 0;
-  double prevAlong = 1e9;
   while (nowMs() < end && timeLeft() > 0) {
     updateOdometry();
     checkAbort();
@@ -437,10 +545,14 @@ void driveTo(double tx, double ty, double maxSpeed, int timeoutMs, bool passThro
     err = wrap180(aim - robotHeading());
     double along = dist * std::cos(err * M_PI / 180.0);   // distance left along the robot
     if (along < posTol) break;                             // arrived (or just passed it)
+    // Knocked or slipped far off line: stop this move; the next move turns
+    // to face its own target again.
+    if (dist > 6 && std::fabs(err) > 60) break;
 
-    double speed = MOVE_KP * along;
-    if (prevAlong < 1e8) speed += MOVE_KD * (along - prevAlong) / 0.010;
-    prevAlong = along;
+    // Speed from a stopping curve: full speed while far away, then slowing
+    // down evenly (DRIVE_DECEL) so it arrives slowly and stops on the spot.
+    double topSpeed = 200.0 * 360.0 / 60.0 * inchesPerMotorDegree();   // inches/s at 100%
+    double speed = std::sqrt(2.0 * DRIVE_DECEL * along) / topSpeed * 100.0;
     if (passThrough && speed < PASS_SPEED) speed = PASS_SPEED;   // keep rolling
     if (speed > maxSpeed) speed = maxSpeed;
     if (speed > lastSpeed + SLEW) speed = lastSpeed + SLEW;
@@ -453,7 +565,7 @@ void driveTo(double tx, double ty, double maxSpeed, int timeoutMs, bool passThro
     if (turn > 40) turn = 40;
     if (turn < -40) turn = -40;
 
-    tankDrive(backwards ? -speed : speed, turn);
+    autonDrive(backwards ? -speed : speed, turn);
     wait(10, msec);
   }
   if (passThrough) {
@@ -738,25 +850,107 @@ void testRoutine() {
 }
 
 /*---------------------------------------------------------------------------*/
+/*                     Check and tuning routines                             */
+/*---------------------------------------------------------------------------*/
+// CHECK ROBOT: spins a little clockwise and back, and uses the inertial to
+// check that DRIVE_SIGN and the drive motors' true/false are right. Also
+// measures TRACK_WIDTH. Needs the robot on the tiles with room to turn.
+void checkRoutine() {
+  if (!imuReadable()) {
+    snprintf(resultA, sizeof(resultA), "CHECK: no inertial on port 16, or it is");
+    snprintf(resultB, sizeof(resultB), "still calibrating. Plug in / tap CAL.");
+    return;
+  }
+  double imu0 = imuRotation();
+  double l0 = leftDeg();
+  double r0 = rightDeg();
+  autonDrive(0, 25);                  // ask for a clockwise spin
+  waitMs(600);
+  stopDrive();
+  waitMs(400);                        // let it stop before measuring
+  double imuTurn = imuRotation() - imu0;
+  double dL = (leftDeg() - l0) * inchesPerMotorDegree();    // motor direction
+  double dR = (rightDeg() - r0) * inchesPerMotorDegree();
+
+  autonDrive(0, -25);                 // spin back to roughly where it was
+  waitMs(600);
+  stopDrive();
+  waitMs(300);
+
+  if (std::fabs(dL) < 0.5 && std::fabs(dR) < 0.5) {
+    snprintf(resultA, sizeof(resultA), "CHECK: drive motors did not move.");
+    snprintf(resultB, sizeof(resultB), "Check drive ports 3, 11, 8, 20.");
+  } else if (std::fabs(imuTurn) < 5) {
+    snprintf(resultA, sizeof(resultA), "CHECK: robot did not turn. One drive side");
+    snprintf(resultB, sizeof(resultB), "is reversed wrong (motor true/false).");
+  } else {
+    int needed = ((imuTurn > 0) == (dL - dR > 0)) ? 1 : -1;
+    double track = std::fabs(dL - dR) / (std::fabs(imuTurn) * M_PI / 180.0);
+    if (needed != (int)DRIVE_SIGN) {
+      snprintf(resultA, sizeof(resultA), "CHECK: DRIVE_SIGN is WRONG, set it to %d", needed);
+    } else {
+      snprintf(resultA, sizeof(resultA), "CHECK OK: turned %.0f deg, DRIVE_SIGN right", imuTurn);
+    }
+    snprintf(resultB, sizeof(resultB), "Set TRACK_WIDTH = %.1f (now %.1f)", track, TRACK_WIDTH);
+  }
+}
+
+// TUNE: DRIVE 48in. Drives straight forward 48 inches by the encoders.
+// Measure how far it really went to set FORWARD_SCALE.
+void tuneDriveRoutine() {
+  driveTo(0, 48, 50, 6000, false);
+  waitMs(500);
+  if (timeLeft() <= 0) return;
+  snprintf(resultA, sizeof(resultA), "Code says it drove %.1f in (%.1f sideways)", robotY, robotX);
+  snprintf(resultB, sizeof(resultB), "Measure real D: FORWARD_SCALE x D / %.1f", robotY);
+}
+
+// TUNE: TURN 90 x4. Four right-angle turns, a full circle. Shows the worst
+// error the inertial saw. The robot should end facing where it started.
+void tuneTurnRoutine() {
+  double worst = 0;
+  for (int i = 1; i <= 4 && timeLeft() > 0; i++) {
+    turnTo(90.0 * i, TURN_SPEED, 2000);
+    waitMs(300);
+    double e = 90.0 * i - robotHeading();
+    if (std::fabs(e) > std::fabs(worst)) worst = e;
+  }
+  if (timeLeft() <= 0 && resultA[0] == 'S') return;   // a safety stop is showing
+  snprintf(resultA, sizeof(resultA), "Turns: worst error %.1f deg", worst);
+  snprintf(resultB, sizeof(resultB), "Not facing start? Set IMU_SCALE");
+}
+
+/*---------------------------------------------------------------------------*/
 /*                              Autonomous                                   */
 /*---------------------------------------------------------------------------*/
 void runSelectedRoutine() {
   int which = routine;
+  bool tool = (which == R_TEST || which == R_CHECK ||
+               which == R_TUNE_DRIVE || which == R_TUNE_TURN);
   int budget = (which == R_SKILLS) ? 60000 : 15000;
-  if (which == R_TEST) budget = 30000;
-  autonDeadline = nowMs() + budget - 250;     // stop a touch early
+  if (tool) budget = 30000;
 
   // If the robot was only just switched on, the inertial may still be
-  // calibrating. Wait for it, or pre_auton would reset the pose mid-run.
+  // calibrating. Wait for it, or the calibration would reset the pose mid-run.
   while (!imuReady) {
     wait(10, msec);
   }
+  autonDeadline = nowMs() + budget - 250;     // stop a touch early
+  resultA[0] = 0;
+  resultB[0] = 0;
+  if (!Inertial.installed()) {
+    snprintf(resultA, sizeof(resultA), "NO INERTIAL: steering by the wheels only");
+    Controller1.rumble("---");
+  }
 
-  if (which == R_TEST) {
+  if (tool) {
     tfBlue = false;
     tfMirror = false;
     setPose(0, 0, 0);
-    testRoutine();
+    if (which == R_TEST) testRoutine();
+    if (which == R_CHECK) checkRoutine();
+    if (which == R_TUNE_DRIVE) tuneDriveRoutine();
+    if (which == R_TUNE_TURN) tuneTurnRoutine();
     finishAuton();
     return;
   }
@@ -804,6 +998,10 @@ void drawSelector() {
   Brain.Screen.drawRectangle(85, 65, 310, 55);
   Brain.Screen.printAt(100, 99, true, "%-22s", routineName(routine));
 
+  // CAL: redo the inertial calibration (robot must be still).
+  Brain.Screen.drawRectangle(400, 126, 75, 42);
+  Brain.Screen.printAt(420, 153, true, "CAL");
+
   Controller1.Screen.clearLine(2);
   Controller1.Screen.setCursor(2, 1);
   Controller1.Screen.print("%s %s", blueAlliance ? "BLU" : "RED", routineName(routine));
@@ -831,42 +1029,87 @@ void onScreenPressed() {
     } else if (x > 320) {
       routine = (routine + 1) % ROUTINE_COUNT;
     }
+  } else if (x >= 400 && y <= 170) {
+    calRequested = true;              // done by the main loop, not here
   }
   selectorDirty = true;
 }
 
 // Live readout under the selector, for tuning and troubleshooting.
+// Runs in the main loop all the time, including before a match.
 void showStatus() {
-  Brain.Screen.setPenColor(color::white);
   Brain.Screen.setFillColor(color::black);
-  Brain.Screen.printAt(10, 150, true, "X %6.1f  Y %6.1f  Heading %6.1f     ", robotX, robotY, robotHeading());
-  Brain.Screen.printAt(10, 175, true, "Lift %5.0f deg   Claw %s     ", LiftMotorA.position(degrees), clawClosed ? "closed" : "open  ");
-  Brain.Screen.printAt(10, 200, true, "Side toggles: left(2) %s  right(9) %s   ",
-                       ToggleLeft.installed() ? "ok" : "MISSING", ToggleRight.installed() ? "ok" : "MISSING");
-  Brain.Screen.printAt(10, 225, true, "Toggle deg  L %6.0f  R %6.0f      ",
-                       ToggleLeft.position(degrees), ToggleRight.position(degrees));
+  Brain.Screen.setPenColor(color::white);
+  Brain.Screen.printAt(10, 140, true, "X %6.1f Y %6.1f H %6.1f  ", robotX, robotY, robotHeading());
+
+  // Inertial status (the CAL box is to the right, so keep this line short).
+  if (!imuReady) {
+    Brain.Screen.setPenColor(color::yellow);
+    Brain.Screen.printAt(10, 162, true, "IMU calibrating, DON'T MOVE ");
+  } else if (!Inertial.installed()) {
+    Brain.Screen.setPenColor(color::red);
+    Brain.Screen.printAt(10, 162, true, "IMU NOT FOUND (port 16)     ");
+  } else if (imuMovedWarning) {
+    Brain.Screen.setPenColor(color::yellow);
+    Brain.Screen.printAt(10, 162, true, "IMU moved? Keep still, CAL  ");
+  } else {
+    Brain.Screen.printAt(10, 162, true, "IMU OK  raw %8.1f      ", Inertial.rotation(degrees));
+  }
+  Brain.Screen.setPenColor(color::white);
+  Brain.Screen.printAt(10, 184, true, "Lift %5.0f deg   Claw %s   ", LiftMotorA.position(degrees), clawClosed ? "closed" : "open  ");
+  Brain.Screen.printAt(10, 206, true, "%-46s", resultA);
+  Brain.Screen.printAt(10, 228, true, "%-46s", resultB);
 }
 
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous                                   */
 /*---------------------------------------------------------------------------*/
+// Calibrates the inertial (about 2-3 seconds; the robot must be completely
+// still) and checks it worked. Called at power-on and when CAL is tapped.
+void calibrateInertial() {
+  imuReady = false;
+  imuMovedWarning = false;
+  Brain.Screen.clearScreen();
+  Brain.Screen.setFillColor(color::black);
+  if (!Inertial.installed()) {
+    Brain.Screen.setPenColor(color::red);
+    Brain.Screen.printAt(10, 30, true, "NO INERTIAL FOUND ON PORT 16!");
+    Brain.Screen.printAt(10, 55, true, "Autons will steer by the wheels only.");
+    Brain.Screen.setPenColor(color::white);
+    Controller1.rumble("---");
+    wait(1500, msec);
+  } else {
+    Brain.Screen.setPenColor(color::white);
+    Brain.Screen.printAt(10, 30, true, "Calibrating inertial...");
+    Brain.Screen.printAt(10, 55, true, "DON'T TOUCH OR MOVE THE ROBOT");
+    Inertial.calibrate();
+    wait(200, msec);                  // isCalibrating() can take a moment to turn on
+    int start = nowMs();
+    while (Inertial.isCalibrating() && nowMs() - start < 6000) {
+      wait(20, msec);
+    }
+    // A good calibration holds still: the heading should not creep while
+    // the robot sits there. If it does, the robot was probably moved.
+    double r0 = Inertial.rotation(degrees);
+    wait(500, msec);
+    if (std::fabs(Inertial.rotation(degrees) - r0) > 0.3) {
+      imuMovedWarning = true;
+      Controller1.rumble("--");
+    }
+  }
+  Brain.Screen.clearScreen();
+  setPose(0, 0, 0);
+  selectorDirty = true;
+  imuReady = true;
+}
+
 void pre_auton(void) {
   Lift.setStopping(hold);
   Lift.setPosition(0, degrees);       // the lift must be fully down at power-on
   ToggleLeft.setStopping(hold);
   ToggleRight.setStopping(hold);
   setClaw(true);                      // closed, so it keeps hold of the preload
-
-  Brain.Screen.clearScreen();
-  Brain.Screen.printAt(10, 30, true, "Calibrating inertial... don't move!");
-  Inertial.calibrate();
-  while (Inertial.isCalibrating()) {
-    wait(50, msec);
-  }
-  Brain.Screen.clearScreen();
-  setPose(0, 0, 0);
-  selectorDirty = true;
-  imuReady = true;
+  calibrateInertial();
 }
 
 /*---------------------------------------------------------------------------*/
@@ -896,7 +1139,7 @@ void usercontrol(void) {
     updateOdometry();
 
     // X + Y: practise the selected auton. Never fires on a real field.
-    if (Controller1.ButtonX.pressing() && Controller1.ButtonY.pressing() &&
+    if (imuReady && Controller1.ButtonX.pressing() && Controller1.ButtonY.pressing() &&
         !Competition.isFieldControl() && !Competition.isCompetitionSwitch()) {
       testRun = true;
       runSelectedRoutine();
@@ -943,8 +1186,6 @@ void usercontrol(void) {
       ToggleRight.stop(hold);
     }
 
-    showStatus();
-
     wait(20, msec);
   }
 }
@@ -960,11 +1201,19 @@ int main() {
 
   pre_auton();
 
+  // All brain-screen drawing happens here, in one place.
   while (true) {
+    if (calRequested) {
+      calRequested = false;
+      // Never in the middle of an auton or an X+Y test-run.
+      bool running = testRun || (Competition.isEnabled() && Competition.isAutonomous());
+      if (!running) calibrateInertial();
+    }
     if (selectorDirty) {
       selectorDirty = false;
       drawSelector();
     }
+    showStatus();
     wait(100, msec);
   }
 }

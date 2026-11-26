@@ -1,38 +1,35 @@
 # **93601V Repo**
-## **What this is**
-This serves as the primary place for coordinating code writing and other files for the team, will be periodically updated with the newest code or whenever I can be bothered to
-## **What can you find here**
-- drivetrain.v5cpp  --- our primary base code for our robot, runs the drive train, the claw and the (v1) lift (also new V2 lift)
-- auton.v5cpp --- pretty self explanatory now in dev
-- comp.v5cpp --- combine auton/drive code that works with the field controllers and is actually needed for the comp
 
-## **Auton Logic**
+> **Switching computers or new to the repo? Read [HANDOFF.md](HANDOFF.md).** Get the latest with `./scripts/sync.sh`, save your work with `./scripts/sync.sh "what you changed"`.
 
-After much brain storming I have come up with an achievable plan for an auton consisting of these steps
+Code for team 93601V's VEX V5 robot, game: Override (2026-27).
 
-Toggle the toggle twice to match the colour of the team we are --> drive forward 2 feet --> rotate until Ai vision sensor sees target goal April tag at 0 degrees --> Move forward till bumper is triggered  --> move the pin cup preload into place.
+## The current robot: tank drive (44W, two 11W motors per side)
 
-## **X-drive and tank drive code (branch `x-drive`)**
-Both drive bases are kept. Use the pair that matches the robot you have built. The claw (3-wire A) and controls (hold R2 for the side toggles) are the same in both, but the ports are not.
+| File | What it is |
+|---|---|
+| `TankComp.v5cpp` | **Flash this for matches and skills.** Driver control plus a brain-screen auton selector, odometry, six 15 second match autons, a 60 second skills auton and a drive test. |
+| `TankDrive.v5cpp` | Driver control only, for practice. |
 
-**Tank drive (44W, two 11W motors per side) -- the current robot**
+The repo folder is also a VEX VS Code project that builds and downloads `TankComp` (see `HANDOFF.md`).
+
+Each `.v5cpp` (open in VEXcode V5) has a matching `.cpp` with the same code as plain C++ (edit in VS Code or read on GitHub). `scripts/sync.sh` keeps them matching.
 
 | Device | Port |
 |---|---|
 | Front left / back left drive | 3 / 11 |
-| Front right / back right drive | 8 / 20 |
+| Front right / back right drive | 8 / 20 (reversed) |
 | Inertial | 16 |
 | Lift (2 x 11W) | 1 and 10 |
 | Side toggles (5.5W) | left 2, right 9 |
 | Claw solenoid | 3-wire A |
 
-Drive, lift and side toggles run on voltage (12 V = full power) for more speed.
-- TankDrive.v5cpp --- driver code: arcade drive (left stick forward/back, right stick turn)
-- TankComp.v5cpp --- full Override competition code: brain-screen auton selector, odometry, six 15 second match autons, a 60 second skills auton and a drive test
+Drive, lift and side toggles run on voltage (12 V = full power). Controls: left stick forward/back, right stick turn, L1/L2 lift, R1 claw, hold R2 for the side toggles (hold Up to reverse them).
 
-**X-drive (44W, one 11W motor per wheel: FL 10, FR 20, BL 9, BR 19, inertial 12, lift 1 + 2, side toggles left 3, right 4)** -- still on the old ports
-- XDrive.v5cpp --- driver code with field-centric driving and strafing
-- XDriveComp.v5cpp --- full Override competition code for the X-drive, same routines as TankComp
+None of the competition code has been tested on the robot yet; see the tuning steps at the top of `TankComp.cpp` and the to-do list in `HANDOFF.md`.
 
-Each .v5cpp has a matching .cpp with the same code as plain C++. None of the competition code has been tested on a robot yet; see the tuning steps at the top of each file.
-- ROBOT.md --- handoff notes (ports, controls, open problems); the top of the file lists what has changed since
+## Old code
+
+Code we no longer use is on the [`deprecated` branch](https://github.com/LincFPV/93601V-repo/tree/deprecated):
+- `old-robot/`: the earlier tank robot with the spin claw (`drivetrain`, `auton`, `Comp`, `CompV2`, `OldDrivetrainComp`) and its original README
+- `x-drive/`: the X-drive version of this robot (`XDrive`, `XDriveComp`) and its handoff notes (`ROBOT.md`)

@@ -67,7 +67,7 @@ const int DEADBAND = 5;
 // Motors are driven by voltage: 100% = 12 V.
 const double VOLTS_PER_PERCENT = 12.0 / 100.0;
 
-const int TOGGLE_SPEED = 100;         // percent (5.5W motors are weak)
+const int TOGGLE_SPEED = 50;          // percent. Lower = slower toggles
 const int LIFT_SPEED   = 100;         // percent
 
 // Flip either of these to -1 if the robot drives or turns the wrong way.

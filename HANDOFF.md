@@ -72,6 +72,41 @@ practice only) and download as usual.
 - In VEXcode, keep the **Devices panel empty** and never add `brain Brain;`.
   Every device is declared in the code; doing either gives "redefinition" errors.
 
+## Making the auton accurate
+
+Do these in order, with the robot on the field tiles and room to move. Pick
+each routine on the brain screen and press **X + Y** on the controller (only
+works when the controller isn't plugged into field control). Down arrow stops it.
+Results show on the bottom two lines of the brain screen.
+
+1. **Inertial:** the brain line `IMU` must say **OK**. *NOT FOUND* = plug the
+   inertial into port 16. *moved?* = it was bumped while calibrating: keep the
+   robot completely still and tap **CAL** (calibration takes about 3 seconds
+   and also happens every time the program starts).
+2. **CHECK ROBOT:** spins a little each way. It tells you if `DRIVE_SIGN` is
+   wrong and shows the robot's `TRACK_WIDTH`. Put that number into the code.
+3. **TUNE: DRIVE 48in:** drives straight. Measure how far it really went with a
+   tape measure (D inches), then set
+   `FORWARD_SCALE = FORWARD_SCALE x D / (the distance it shows)`.
+   Repeat until it's within about half an inch.
+4. **TUNE: TURN 90 x4:** four right-angle turns. It should end facing exactly
+   where it started. If it's off, do the hand-turn test:
+   - Line the robot up against a tile seam and read the `raw` number on the
+     `IMU` line.
+   - Turn the robot by hand **exactly 5 full turns clockwise** back onto the
+     same seam, and read `raw` again.
+   - `IMU_SCALE = 1800 / (second number - first number)`.
+5. **TEST (24in square):** should come back to where it started.
+6. Then the lift heights, claw reach and toggle, as listed at the top of
+   `TankComp.cpp`.
+
+If a routine ever shows **"STOPPED: robot turned the wrong way"**, the robot
+stopped itself instead of spinning out of control: run CHECK ROBOT.
+
+`DRIVE_DECEL` and `TURN_DECEL` set how hard the robot slows down at the end of
+each move. Raise them a little for speed once it's accurate; lower them if it
+overshoots.
+
 ## Using Claude on another computer
 
 Open this repo folder in Claude Code (desktop app: choose the folder; terminal:
@@ -83,6 +118,15 @@ points it here, so it starts with the full picture. Ask it to
 
 Newest entry first. Add a line whenever something changes or gets tested.
 
+- **26 Nov 2026:** Auton accuracy rework in `TankComp` (not yet run on the
+  robot): autons now drive with closed-loop speed control instead of voltage;
+  drives and turns use a smooth stopping curve and stop within 0.5" / 1 degree
+  (were 1" / 2 degrees); the inertial is checked at start-up, can be
+  recalibrated with CAL, and if it is missing or unplugged the robot steers by
+  its wheels; a safety stop ends the auton if the robot turns the wrong way.
+  New routines CHECK ROBOT, TUNE: DRIVE 48in, TUNE: TURN 90 x4 (see "Making the
+  auton accurate"). The old `FORWARD_SCALE` comment had the direction backwards;
+  fixed. Simulated: 48" drive within 0.3", turns within 0.3 degrees.
 - **26 Nov 2026:** Fixed "memory permission error 0380619C" on the brain when
   downloading from VS Code. The brain object was created after the claw (which
   uses `Brain.ThreeWirePort.A`), because it was in a separate file. It is now
@@ -114,10 +158,9 @@ of each file and in `README.md`.
 
 ### Not done yet
 
-- [ ] None of the auton code has run on the robot. First: check `DRIVE_SIGN` and
-      `TURN_SIGN` (stick forward must drive forward, stick right must turn
-      clockwise), then run the TEST routine (X + Y on the controller). The
-      tuning steps are at the top of `TankComp.cpp`.
+- [ ] Run the steps in "Making the auton accurate" on the robot and put the
+      numbers they give into `TankComp.cpp`: `DRIVE_SIGN`, `TRACK_WIDTH`,
+      `FORWARD_SCALE`, `IMU_SCALE`.
 - [ ] Measure and fill in: wheel diameter, claw reach, every lift height
       (`H_...`), `TOGGLE_FLIP_DEGREES`.
 - [ ] Nothing else. Old code (X-drive and the earlier robot) is archived on the

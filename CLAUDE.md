@@ -33,7 +33,8 @@ headers are the source of truth for ports.
 - Driver control uses `tankDrive()` (voltage). Autons use `autonDrive()`
   (closed-loop percent velocity, `DRIVE_SIGN` only). Don't mix them up.
 - Heading comes from `fusedHeading` (inertial x `IMU_SCALE`, falling back to the
-  wheels and `TRACK_WIDTH`). Tuning steps are in `HANDOFF.md`, "Making the
+  wheels and `TRACK_WIDTH`). Routines use `Spot` positions and the moves
+  `go` / `via` / `face` / `lineUp`, which mirror automatically for each start. Tuning steps are in `HANDOFF.md`, "Making the
   auton accurate". A simulator run is not proof it works on the robot.
 
 ## Working here

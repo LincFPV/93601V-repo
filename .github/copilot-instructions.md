@@ -61,9 +61,18 @@ Nothing here has been tested on the robot unless a note says so.
 - The inertial is calibrated by `calibrateInertial()` at start-up and when CAL
   is tapped; all brain-screen drawing happens in the main loop (`showStatus()`);
   routines report through the `resultA` / `resultB` strings.
+- Routines are written for red starting by the station, using `Spot` positions
+  (`GOAL_A`, `WALL_N`, `{-35, -12}`...) that `onField()` mirrors for the other
+  starts. Moves: `go(spot, speed, timeout)` drive and stop, `via(spot)` drive
+  through, `face(dir, side)` turn a side (`CLAW_SIDE` / `TOGGLE_SIDE`) to a
+  direction, `lineUp(target, fromDir, reach, side, speed, timeout)` stand off a
+  target. Use these in routines rather than `driveTo()` / `turnTo()` directly.
 
 ## What has been done (newest first)
 
+- **26 Nov 2026:** `TankComp.cpp` simplified (same behaviour, checked in the
+  simulator): `Spot` positions, `go`/`via`/`face`/`lineUp` moves, one routine
+  list, shared drive output, shorter header.
 - **26 Nov 2026:** auton accuracy rework: closed-loop auton driving, stopping
   curves, inertial checks with wheel fallback, CAL button, wrong-way safety
   stop, CHECK ROBOT and TUNE routines. Simulated, not yet run on the robot.
@@ -85,4 +94,4 @@ Nothing here has been tested on the robot unless a note says so.
   and set `DRIVE_SIGN`, `TRACK_WIDTH`, `FORWARD_SCALE`, `IMU_SCALE` from them
   (steps in `HANDOFF.md`, "Making the auton accurate").
 - Measure wheel diameter, claw reach, lift heights (`H_...`), `TOGGLE_FLIP_DEGREES`.
-- Tune the autons one at a time; see the tuning steps at the top of `TankComp.cpp`.
+- Tune the autons one at a time; see "Making the auton accurate" in `HANDOFF.md`.

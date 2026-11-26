@@ -118,6 +118,9 @@ points it here, so it starts with the full picture. Ask it to
 
 Newest entry first. Add a line whenever something changes or gets tested.
 
+- **26 Nov 2026:** Simplified `TankComp.cpp` (about 130 lines shorter, easier
+  to read). The robot does exactly the same thing: all 93 simulator runs
+  (every routine, start and fault case) match the old version exactly.
 - **26 Nov 2026:** Auton accuracy rework in `TankComp` (not yet run on the
   robot): autons now drive with closed-loop speed control instead of voltage;
   drives and turns use a smooth stopping curve and stop within 0.5" / 1 degree

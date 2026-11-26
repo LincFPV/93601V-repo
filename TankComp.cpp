@@ -96,7 +96,7 @@ const int DEADBAND = 5;
 const double VOLTS_PER_PERCENT = 12.0 / 100.0;
 
 // ---- Side toggles ----
-const int    TOGGLE_SPEED = 100;            // percent (5.5W motors are weak)
+const int    TOGGLE_SPEED = 50;             // percent. Lower = slower toggles
 const bool   AUTON_TOGGLE_ON_RIGHT = true;  // which side toggle the autons use
 const double TOGGLE_FLIP_DEGREES = 360;     // motor degrees for one auton flip. TUNE.
 const int    TOGGLE_AUTON_TIMEOUT_MS = 2000;

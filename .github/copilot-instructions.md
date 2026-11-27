@@ -19,7 +19,8 @@ Nothing here has been tested on the robot unless a note says so.
   stick = right side) for practice only; it is forced back to arcade on a field.
 - Drive-straight assist (driver control, arcade): `straightAssist()` holds the
   heading while the left stick drives and the turn stick is centred, using the
-  inertial (`DRIVE_STRAIGHT_ASSIST`, `HOLD_KP`, `HOLD_MAX`, `HOLD_DELAY_MS`).
+  inertial (`HOLD_KP`, `HOLD_MAX`, `HOLD_DELAY_MS`). The Right arrow flips
+  `assistOn` (one buzz = on, two = off); `DRIVE_STRAIGHT_ASSIST` is the start value.
   `TankDrive` now uses the inertial on port 16 for this too. The drivetrain is inverted in code (DRIVE_SIGN and
   TURN_SIGN are -1).
 

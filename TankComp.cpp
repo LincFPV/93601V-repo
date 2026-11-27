@@ -17,7 +17,7 @@
 /*      Up arrow (hold) = spin both side toggles the other way                */
 /*      B = switch arcade / tank controls (practice only, not on a field)     */
 /*      Driving with the turn stick centred, the inertial keeps the robot     */
-/*      straight (drive-straight assist, see DRIVE_STRAIGHT_ASSIST).          */
+/*      straight (drive-straight assist). Right arrow switches it on / off.   */
 /*      X + Y together = test-run the selected auton (only works when NOT     */
 /*                       plugged into field control). Down arrow = abort.     */
 /*                                                                            */
@@ -95,7 +95,8 @@ const int DEADBAND = 5;
 
 // ---- Drive-straight assist (driver control, arcade) ----
 // While you drive with the turn stick centred, the inertial holds the heading
-// the robot had, so it doesn't drift to one side. false = turn it off.
+// the robot had, so it doesn't drift to one side. This is whether it starts
+// on; the Right arrow switches it on / off while driving.
 const bool   DRIVE_STRAIGHT_ASSIST = true;
 const double HOLD_KP       = 1.5;   // turn power per degree off course (raise if it still drifts)
 const double HOLD_MAX      = 20;    // most turn power the assist adds, percent
@@ -889,12 +890,13 @@ void showDriveMode() {
 // Drive-straight assist. Takes the arcade stick values and gives back the turn
 // to use: the driver's own turn while they are turning, or a small correction
 // back to the held heading while they drive with the turn stick centred.
+bool   assistOn = DRIVE_STRAIGHT_ASSIST;   // the Right arrow switches it
 bool   holdingHeading = false;
 double heldHeading = 0;
 int    holdFromMs = 0;
 
 double straightAssist(double forward, double turn) {
-  if (!DRIVE_STRAIGHT_ASSIST || !imuReady || forward == 0 || turn != 0) {
+  if (!assistOn || !imuReady || forward == 0 || turn != 0) {
     holdingHeading = false;
     return turn;
   }
@@ -935,6 +937,8 @@ void usercontrol(void) {
   bool tankMode = false;          // practice only: B switches to tank controls
   bool bWasPressed = false;
   bool shownTank = true;          // forces the first controller-screen update
+  bool rightWasPressed = false;
+  bool shownAssist = assistOn;
 
   while (true) {
     updateOdometry();
@@ -963,11 +967,23 @@ void usercontrol(void) {
     if (bPressed && !bWasPressed && !onField) tankMode = !tankMode;
     bWasPressed = bPressed;
     if (onField) tankMode = false;
-    if (tankMode != shownTank) {
+
+    // Right arrow: switch the drive-straight assist on / off (works any time).
+    // One buzz = on, two buzzes = off.
+    bool rightPressed = Controller1.ButtonRight.pressing();
+    if (rightPressed && !rightWasPressed) {
+      assistOn = !assistOn;
+      holdingHeading = false;
+      Controller1.rumble(assistOn ? "." : "..");
+    }
+    rightWasPressed = rightPressed;
+
+    if (tankMode != shownTank || assistOn != shownAssist) {
       shownTank = tankMode;
+      shownAssist = assistOn;
       Controller1.Screen.clearLine(3);
       Controller1.Screen.setCursor(3, 1);
-      Controller1.Screen.print(tankMode ? "TANK controls (B)" : "ARCADE controls");
+      Controller1.Screen.print("%s  assist %s", tankMode ? "TANK" : "ARCADE", assistOn ? "ON" : "OFF");
     }
 
     if (tankMode) {

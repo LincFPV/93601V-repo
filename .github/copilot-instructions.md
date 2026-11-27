@@ -13,8 +13,10 @@ Nothing here has been tested on the robot unless a note says so.
   (5.5W motors); claw solenoid 3-wire A. The code headers are the source of truth.
 - Drive geared 36:60 (motor:wheel). Drive, lift and toggles run on voltage
   (`spin(..., volt)`, 100% = 12 V via `VOLTS_PER_PERCENT`).
-- Controls: left stick forward/back, right stick turn; L1/L2 lift; R1 claw;
-  hold R2 = both side toggles spin, hold Up = they spin the other way.
+- Controls: left stick forward/back, right stick turn; R1/R2 lift up/down;
+  L1 claw close, L2 claw open; hold A = both side toggles spin, hold Up = they
+  spin the other way. The drivetrain is inverted in code (DRIVE_SIGN and
+  TURN_SIGN are -1).
 
 ## Other files
 

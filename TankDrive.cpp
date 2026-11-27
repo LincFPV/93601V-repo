@@ -17,13 +17,13 @@
 /*    Controls:                                                               */
 /*      Left stick up/down  = forward / backward                              */
 /*      Right stick L/R     = turn                                            */
-/*      L1 / L2             = lift up / down                                  */
-/*      R1                  = open / close claw                               */
-/*      R2 (hold)           = spin both side toggles                          */
+/*      R1 / R2             = lift up / down                                  */
+/*      L1 / L2             = close / open claw                               */
+/*      A (hold)            = spin both side toggles                          */
 /*      Up arrow (hold)     = spin both side toggles the other way            */
 /*                                                                            */
-/*    If the robot drives backwards when you push forward, set DRIVE_SIGN     */
-/*    to -1. If it turns the wrong way, set TURN_SIGN to -1.                  */
+/*    The drivetrain is inverted in the code (DRIVE_SIGN and TURN_SIGN are    */
+/*    -1). If a direction is wrong, change that one back to 1.                */
 /*                                                                            */
 /*    Keep the VEXcode Devices panel EMPTY and do not add "brain Brain;".     */
 /*                                                                            */
@@ -70,9 +70,10 @@ const double VOLTS_PER_PERCENT = 12.0 / 100.0;
 const int TOGGLE_SPEED = 50;          // percent. Lower = slower toggles
 const int LIFT_SPEED   = 100;         // percent
 
-// Flip either of these to -1 if the robot drives or turns the wrong way.
-const double DRIVE_SIGN = 1;
-const double TURN_SIGN  = 1;
+// The drivetrain is inverted: -1 flips forward/back (DRIVE_SIGN) and turning
+// (TURN_SIGN). If one of them goes the wrong way, change it back to 1.
+const double DRIVE_SIGN = -1;
+const double TURN_SIGN  = -1;
 
 bool clawClosed = false;
 
@@ -110,10 +111,6 @@ void stopDrive() {
 void setClaw(bool closed) {
   clawClosed = closed;
   Claw.set(closed);
-}
-
-void toggleClaw() {
-  setClaw(!clawClosed);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -159,18 +156,25 @@ void usercontrol(void) {
       tankDrive(forward, turn);
     }
 
-    // Lift: hold L1 to go up, L2 to go down, holds position when released.
-    if (Controller1.ButtonL1.pressing()) {
+    // Lift: hold R1 to go up, R2 to go down, holds position when released.
+    if (Controller1.ButtonR1.pressing()) {
       Lift.spin(fwd, LIFT_SPEED * VOLTS_PER_PERCENT, volt);
-    } else if (Controller1.ButtonL2.pressing()) {
+    } else if (Controller1.ButtonR2.pressing()) {
       Lift.spin(reverse, LIFT_SPEED * VOLTS_PER_PERCENT, volt);
     } else {
       Lift.stop(hold);
     }
 
-    // Side toggles: hold R2 to spin both. Hold the Up arrow to spin both
+    // Claw: L1 closes it (grab), L2 opens it (let go).
+    if (Controller1.ButtonL1.pressing()) {
+      setClaw(true);
+    } else if (Controller1.ButtonL2.pressing()) {
+      setClaw(false);
+    }
+
+    // Side toggles: hold A to spin both. Hold the Up arrow to spin both
     // the other way. They stop as soon as you let go.
-    if (Controller1.ButtonR2.pressing()) {
+    if (Controller1.ButtonA.pressing()) {
       ToggleLeft.spin(fwd, TOGGLE_SPEED * VOLTS_PER_PERCENT, volt);
       ToggleRight.spin(fwd, TOGGLE_SPEED * VOLTS_PER_PERCENT, volt);
     } else if (Controller1.ButtonUp.pressing()) {
@@ -188,10 +192,6 @@ void usercontrol(void) {
 int main() {
   Competition.autonomous(autonomous);
   Competition.drivercontrol(usercontrol);
-
-  // Registered here, not in usercontrol, so each press only fires once
-  // even when the field or switch restarts driver control.
-  Controller1.ButtonR1.pressed(toggleClaw);
 
   pre_auton();
 

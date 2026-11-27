@@ -83,6 +83,11 @@ points it here, so it starts with the full picture. Ask it to
 
 Newest entry first. Add a line whenever something changes or gets tested.
 
+- **27 Nov 2026:** Auton fixes from 26 Nov reverted (back to the version after
+  the memory error fix). Drivetrain inverted in `TankComp` and `TankDrive`
+  (`DRIVE_SIGN` and `TURN_SIGN` are -1, for driver control and the autons).
+  New controls: R1/R2 lift up/down, L1 claw close, L2 claw open, hold A for the
+  side toggles (hold Up to reverse them).
 - **26 Nov 2026:** Fixed "memory permission error 0380619C" on the brain when
   downloading from VS Code. The brain object was created after the claw (which
   uses `Brain.ThreeWirePort.A`), because it was in a separate file. It is now

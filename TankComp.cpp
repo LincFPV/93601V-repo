@@ -12,8 +12,8 @@
 /*                                                                            */
 /*    Driver controls:                                                        */
 /*      Left stick up/down = forward / back    Right stick X = turn           */
-/*      L1 / L2 = lift up / down         R1 = claw                            */
-/*      R2 (hold) = spin both side toggles                                    */
+/*      R1 / R2 = lift up / down         L1 / L2 = claw close / open          */
+/*      A (hold) = spin both side toggles                                     */
 /*      Up arrow (hold) = spin both side toggles the other way                */
 /*      X + Y together = test-run the selected auton (only works when NOT     */
 /*                       plugged into field control). Down arrow = abort.     */
@@ -34,8 +34,8 @@
 /*                                                                            */
 /*    TUNING ORDER (nothing below has been run on the real robot yet):        */
 /*      1. Push the left stick up: the robot must drive forward. If not,      */
-/*         set DRIVE_SIGN to -1. Push the right stick right: it must turn     */
-/*         clockwise. If not, set TURN_SIGN to -1. The autons need both       */
+/*         flip DRIVE_SIGN (-1 <-> 1). Push the right stick right: it must    */
+/*         turn clockwise. If not, flip TURN_SIGN. The autons need both       */
 /*         right or they will spin in circles.                                */
 /*      2. Run routine "TEST" with X+Y: forward 24", turn right, forward      */
 /*         24", then back to the start facing forward. If the distance is     */
@@ -108,9 +108,10 @@ const double WHEEL_DIAMETER = 3.25;     // inches. MEASURE YOUR WHEELS.
 // If it is the other way round (60 on the motor), swap to 60.0 / 36.0.
 const double DRIVE_GEAR_RATIO = 36.0 / 60.0;
 const double FORWARD_SCALE  = 1.0;      // raise if the robot drives short
-// Flip either of these to -1 if the robot drives or turns the wrong way.
-const double DRIVE_SIGN  =  1;
-const double TURN_SIGN   =  1;
+// The drivetrain is inverted: -1 flips forward/back (DRIVE_SIGN) and turning
+// (TURN_SIGN). If one of them goes the wrong way, change it back to 1.
+const double DRIVE_SIGN  = -1;
+const double TURN_SIGN   = -1;
 
 // ---- Robot shape (inches / degrees) ----
 // Angles are measured clockwise from the FRONT of the robot, looking down.
@@ -318,10 +319,6 @@ void updateOdometry() {
 void setClaw(bool closed) {
   clawClosed = closed;
   Claw.set(closed);
-}
-
-void toggleClaw() {
-  setClaw(!clawClosed);
 }
 
 void stopToggles() {
@@ -921,18 +918,25 @@ void usercontrol(void) {
       tankDrive(forward, turn);
     }
 
-    // Lift: hold L1 to go up, L2 to go down, holds position when released.
-    if (Controller1.ButtonL1.pressing()) {
+    // Lift: hold R1 to go up, R2 to go down, holds position when released.
+    if (Controller1.ButtonR1.pressing()) {
       Lift.spin(fwd, LIFT_SPEED * VOLTS_PER_PERCENT, volt);
-    } else if (Controller1.ButtonL2.pressing()) {
+    } else if (Controller1.ButtonR2.pressing()) {
       Lift.spin(reverse, LIFT_SPEED * VOLTS_PER_PERCENT, volt);
     } else {
       Lift.stop(hold);
     }
 
-    // Side toggles: hold R2 to spin both. Hold the Up arrow to spin both
+    // Claw: L1 closes it (grab), L2 opens it (let go).
+    if (Controller1.ButtonL1.pressing()) {
+      setClaw(true);
+    } else if (Controller1.ButtonL2.pressing()) {
+      setClaw(false);
+    }
+
+    // Side toggles: hold A to spin both. Hold the Up arrow to spin both
     // the other way.
-    if (Controller1.ButtonR2.pressing()) {
+    if (Controller1.ButtonA.pressing()) {
       ToggleLeft.spin(fwd, TOGGLE_SPEED * VOLTS_PER_PERCENT, volt);
       ToggleRight.spin(fwd, TOGGLE_SPEED * VOLTS_PER_PERCENT, volt);
     } else if (Controller1.ButtonUp.pressing()) {
@@ -955,7 +959,6 @@ int main() {
 
   // Registered here, not in usercontrol, so each press only fires once
   // even when the field or switch restarts driver control.
-  Controller1.ButtonR1.pressed(toggleClaw);
   Brain.Screen.pressed(onScreenPressed);
 
   pre_auton();

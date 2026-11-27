@@ -6,6 +6,7 @@
 /*    Ports:                                                                  */
 /*      Left drive ........ 3 (front), 11 (back)                              */
 /*      Right drive ....... 8 (front), 20 (back)                              */
+/*      Inertial .......... 16 (for the drive-straight assist)                */
 /*      Lift (2 x 11W) .... 1, 10                                             */
 /*      Side toggles ...... left 2, right 9 (5.5W motors)                     */
 /*      Claw piston ....... 3-wire port A on the brain                        */
@@ -22,6 +23,8 @@
 /*      A (hold)            = spin both side toggles                          */
 /*      Up arrow (hold)     = spin both side toggles the other way            */
 /*      B                   = arcade / tank controls (not on a field)         */
+/*      Driving with the turn stick centred, the inertial keeps the robot     */
+/*      straight (drive-straight assist, see DRIVE_STRAIGHT_ASSIST).          */
 /*                                                                            */
 /*    The drivetrain is inverted in the code (DRIVE_SIGN and TURN_SIGN are    */
 /*    -1). If a direction is wrong, change that one back to 1.                */
@@ -47,6 +50,8 @@ motor BackRight  = motor(PORT20, ratio18_1, true);
 motor_group LeftDrive  = motor_group(FrontLeft, BackLeft);
 motor_group RightDrive = motor_group(FrontRight, BackRight);
 
+inertial Inertial = inertial(PORT16);
+
 // 22W cascade lift: two 11W motors working together.
 // If the motors fight each other, flip one true/false.
 motor LiftMotorA = motor(PORT1,  ratio18_1, false);
@@ -65,6 +70,14 @@ motor ToggleRight = motor(PORT9, ratio18_1, true);
 // Joystick values below this are treated as 0 to stop drift.
 const int DEADBAND = 5;
 
+// ---- Drive-straight assist (driver control, arcade) ----
+// While you drive with the turn stick centred, the inertial holds the heading
+// the robot had, so it doesn't drift to one side. false = turn it off.
+const bool   DRIVE_STRAIGHT_ASSIST = true;
+const double HOLD_KP       = 1.5;   // turn power per degree off course (raise if it still drifts)
+const double HOLD_MAX      = 20;    // most turn power the assist adds, percent
+const int    HOLD_DELAY_MS = 250;   // wait after you stop turning before holding
+
 // Motors are driven by voltage: 100% = 12 V.
 const double VOLTS_PER_PERCENT = 12.0 / 100.0;
 
@@ -77,9 +90,25 @@ const double DRIVE_SIGN = -1;
 const double TURN_SIGN  = -1;
 
 bool clawClosed = false;
+bool imuReady = false;            // set once the inertial has calibrated
 
 int applyDeadband(int value) {
   return (std::abs(value) < DEADBAND) ? 0 : value;
+}
+
+int nowMs() {
+  return (int)Brain.Timer.time(msec);
+}
+
+double wrap180(double a) {
+  while (a > 180) a -= 360;
+  while (a < -180) a += 360;
+  return a;
+}
+
+// Heading in degrees, clockwise, not wrapped.
+double robotHeading() {
+  return Inertial.rotation(degrees);
 }
 
 // forward and turn (clockwise) are -100..100 percent.
@@ -123,6 +152,16 @@ void pre_auton(void) {
   ToggleRight.setStopping(hold);
   setClaw(false);
 
+  // Calibrate the inertial for the drive-straight assist (about 2 seconds).
+  Brain.Screen.clearScreen();
+  Brain.Screen.printAt(10, 30, true, "Calibrating inertial... don't move!");
+  Inertial.calibrate();
+  wait(200, msec);                    // isCalibrating() can take a moment to turn on
+  while (Inertial.isCalibrating()) {
+    wait(50, msec);
+  }
+  imuReady = true;
+
   Brain.Screen.clearScreen();
   Brain.Screen.printAt(10, 30, true, "93601V tank drive ready");
 }
@@ -141,6 +180,38 @@ void autonomous(void) {
 /*---------------------------------------------------------------------------*/
 /*                              User Control                                 */
 /*---------------------------------------------------------------------------*/
+// Drive-straight assist. Takes the arcade stick values and gives back the turn
+// to use: the driver's own turn while they are turning, or a small correction
+// back to the held heading while they drive with the turn stick centred.
+bool   holdingHeading = false;
+double heldHeading = 0;
+int    holdFromMs = 0;
+
+double straightAssist(double forward, double turn) {
+  if (!DRIVE_STRAIGHT_ASSIST || !imuReady || forward == 0 || turn != 0) {
+    holdingHeading = false;
+    return turn;
+  }
+  double now = robotHeading();
+  if (!holdingHeading) {
+    holdingHeading = true;
+    holdFromMs = nowMs() + HOLD_DELAY_MS;   // let the robot stop turning first
+  }
+  if (nowMs() < holdFromMs) {
+    heldHeading = now;                      // still settling: keep updating
+    return 0;
+  }
+  double err = wrap180(heldHeading - now);
+  if (std::fabs(err) > 30) {                // knocked well off course: don't fight it
+    heldHeading = now;
+    return 0;
+  }
+  double correction = HOLD_KP * err;
+  if (correction > HOLD_MAX) correction = HOLD_MAX;
+  if (correction < -HOLD_MAX) correction = -HOLD_MAX;
+  return correction;
+}
+
 void usercontrol(void) {
   Controller1.Screen.clearScreen();
   Controller1.Screen.setCursor(1, 1);
@@ -167,6 +238,7 @@ void usercontrol(void) {
 
     if (tankMode) {
       // Tank: left stick drives the left side, right stick the right side.
+      holdingHeading = false;
       double left  = applyDeadband(Controller1.Axis3.position());
       double right = applyDeadband(Controller1.Axis2.position());
       if (left == 0 && right == 0) {
@@ -176,8 +248,9 @@ void usercontrol(void) {
       }
     } else {
       // Arcade: left stick up/down drives, right stick left/right turns.
+      // straightAssist() stops the robot drifting while the turn stick is centred.
       double forward = applyDeadband(Controller1.Axis3.position());
-      double turn    = applyDeadband(Controller1.Axis1.position());
+      double turn    = straightAssist(forward, applyDeadband(Controller1.Axis1.position()));
       if (forward == 0 && turn == 0) {
         stopDrive();
       } else {

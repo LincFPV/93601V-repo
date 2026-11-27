@@ -16,6 +16,8 @@
 /*      A (hold) = spin both side toggles                                     */
 /*      Up arrow (hold) = spin both side toggles the other way                */
 /*      B = switch arcade / tank controls (practice only, not on a field)     */
+/*      Driving with the turn stick centred, the inertial keeps the robot     */
+/*      straight (drive-straight assist, see DRIVE_STRAIGHT_ASSIST).          */
 /*      X + Y together = test-run the selected auton (only works when NOT     */
 /*                       plugged into field control). Down arrow = abort.     */
 /*                                                                            */
@@ -90,6 +92,14 @@ motor ToggleRight = motor(PORT9, ratio18_1, true);
 
 // ---- Driver ----
 const int DEADBAND = 5;
+
+// ---- Drive-straight assist (driver control, arcade) ----
+// While you drive with the turn stick centred, the inertial holds the heading
+// the robot had, so it doesn't drift to one side. false = turn it off.
+const bool   DRIVE_STRAIGHT_ASSIST = true;
+const double HOLD_KP       = 1.5;   // turn power per degree off course (raise if it still drifts)
+const double HOLD_MAX      = 20;    // most turn power the assist adds, percent
+const int    HOLD_DELAY_MS = 250;   // wait after you stop turning before holding
 
 // Drive, lift (driver) and side toggles are driven by voltage: 100% = 12 V.
 // Voltage is open loop, so the auton minimum powers below are higher than
@@ -876,6 +886,38 @@ void showDriveMode() {
   Controller1.Screen.print("93601V tank drive");
 }
 
+// Drive-straight assist. Takes the arcade stick values and gives back the turn
+// to use: the driver's own turn while they are turning, or a small correction
+// back to the held heading while they drive with the turn stick centred.
+bool   holdingHeading = false;
+double heldHeading = 0;
+int    holdFromMs = 0;
+
+double straightAssist(double forward, double turn) {
+  if (!DRIVE_STRAIGHT_ASSIST || !imuReady || forward == 0 || turn != 0) {
+    holdingHeading = false;
+    return turn;
+  }
+  double now = robotHeading();
+  if (!holdingHeading) {
+    holdingHeading = true;
+    holdFromMs = nowMs() + HOLD_DELAY_MS;   // let the robot stop turning first
+  }
+  if (nowMs() < holdFromMs) {
+    heldHeading = now;                      // still settling: keep updating
+    return 0;
+  }
+  double err = wrap180(heldHeading - now);
+  if (std::fabs(err) > 30) {                // knocked well off course: don't fight it
+    heldHeading = now;
+    return 0;
+  }
+  double correction = HOLD_KP * err;
+  if (correction > HOLD_MAX) correction = HOLD_MAX;
+  if (correction < -HOLD_MAX) correction = -HOLD_MAX;
+  return correction;
+}
+
 void usercontrol(void) {
   // Make sure nothing from autonomous or a cut-off test-run is still running.
   autonDeadline = 0;
@@ -905,6 +947,7 @@ void usercontrol(void) {
       testRun = false;
       autonDeadline = 0;
       selectorDirty = true;
+      holdingHeading = false;       // grab a fresh heading after the run
       // Wait for X and Y to be let go, so one press runs the routine once
       // and an abort with Down stays aborted.
       while (Controller1.ButtonX.pressing() || Controller1.ButtonY.pressing()) {
@@ -929,6 +972,7 @@ void usercontrol(void) {
 
     if (tankMode) {
       // Tank: left stick drives the left side, right stick the right side.
+      holdingHeading = false;
       double left  = applyDeadband(Controller1.Axis3.position());
       double right = applyDeadband(Controller1.Axis2.position());
       if (left == 0 && right == 0) {
@@ -938,8 +982,9 @@ void usercontrol(void) {
       }
     } else {
       // Arcade: left stick up/down drives, right stick left/right turns.
+      // straightAssist() stops the robot drifting while the turn stick is centred.
       double forward = applyDeadband(Controller1.Axis3.position());
-      double turn    = applyDeadband(Controller1.Axis1.position());
+      double turn    = straightAssist(forward, applyDeadband(Controller1.Axis1.position()));
       if (forward == 0 && turn == 0) {
         stopDrive();
       } else {

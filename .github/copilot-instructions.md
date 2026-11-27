@@ -16,7 +16,11 @@ Nothing here has been tested on the robot unless a note says so.
 - Controls: left stick forward/back, right stick turn; R1/R2 lift up/down;
   L1 claw close, L2 claw open; hold A = both side toggles spin, hold Up = they
   spin the other way. B toggles tank controls (left stick = left side, right
-  stick = right side) for practice only; it is forced back to arcade on a field. The drivetrain is inverted in code (DRIVE_SIGN and
+  stick = right side) for practice only; it is forced back to arcade on a field.
+- Drive-straight assist (driver control, arcade): `straightAssist()` holds the
+  heading while the left stick drives and the turn stick is centred, using the
+  inertial (`DRIVE_STRAIGHT_ASSIST`, `HOLD_KP`, `HOLD_MAX`, `HOLD_DELAY_MS`).
+  `TankDrive` now uses the inertial on port 16 for this too. The drivetrain is inverted in code (DRIVE_SIGN and
   TURN_SIGN are -1).
 
 ## Other files

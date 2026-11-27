@@ -83,6 +83,13 @@ points it here, so it starts with the full picture. Ask it to
 
 Newest entry first. Add a line whenever something changes or gets tested.
 
+- **27 Nov 2026:** Drive-straight assist in `TankComp` and `TankDrive`: while
+  driving in arcade with the turn stick centred, the inertial holds the heading
+  so the robot doesn't drift to one side. Simulated on a robot with a 6% weaker
+  left side: drift over 4 s of straight driving went from 18 degrees to 2.4.
+  Turn it off with `DRIVE_STRAIGHT_ASSIST = false`; raise `HOLD_KP` (to about
+  2.5) if it still drifts. `TankDrive` now calibrates the inertial at start-up
+  (keep the robot still for 2 seconds).
 - **27 Nov 2026:** Auton fixes from 26 Nov reverted (back to the version after
   the memory error fix). Drivetrain inverted in `TankComp` and `TankDrive`
   (`DRIVE_SIGN` and `TURN_SIGN` are -1, for driver control and the autons).

@@ -28,15 +28,6 @@ headers are the source of truth for ports.
 - Use `Brain.Screen.printAt(x, y, true, "...")` with the `true` argument
   (without it `printAt` is ambiguous).
 
-## Auton driving (TankComp)
-
-- Driver control uses `tankDrive()` (voltage). Autons use `autonDrive()`
-  (closed-loop percent velocity, `DRIVE_SIGN` only). Don't mix them up.
-- Heading comes from `fusedHeading` (inertial x `IMU_SCALE`, falling back to the
-  wheels and `TRACK_WIDTH`). Routines use `Spot` positions and the moves
-  `go` / `via` / `face` / `lineUp`, which mirror automatically for each start. Tuning steps are in `HANDOFF.md`, "Making the
-  auton accurate". A simulator run is not proof it works on the robot.
-
 ## Working here
 
 - Students own this code. Explain changes in plain words, keep comments simple.

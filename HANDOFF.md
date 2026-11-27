@@ -83,6 +83,9 @@ points it here, so it starts with the full picture. Ask it to
 
 Newest entry first. Add a line whenever something changes or gets tested.
 
+- **27 Nov 2026:** Claw buttons swapped: L1 opens, L2 closes. Driver-control
+  lift confirmed on voltage at the maximum 12 V (`LIFT_VOLTS`). The auton lift
+  in `TankComp` still uses the motor's speed control at 100% (`LIFT_SPEED`).
 - **27 Nov 2026:** Drive-straight assist in `TankComp` and `TankDrive`: while
   driving in arcade with the turn stick centred, the inertial holds the heading
   so the robot doesn't drift to one side. Simulated on a robot with a 6% weaker

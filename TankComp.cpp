@@ -12,7 +12,7 @@
 /*                                                                            */
 /*    Driver controls:                                                        */
 /*      Left stick up/down = forward / back    Right stick X = turn           */
-/*      R1 / R2 = lift up / down         L1 / L2 = claw close / open          */
+/*      R1 / R2 = lift up / down         L1 / L2 = claw open / close          */
 /*      A (hold) = spin both side toggles                                     */
 /*      Up arrow (hold) = spin both side toggles the other way                */
 /*      B = switch arcade / tank controls (practice only, not on a field)     */
@@ -148,7 +148,8 @@ const double H_ALLIANCE_2   = 700;      // cup + pin on top of one pin
 const double H_ALLIANCE_3   = 1150;     // cup + pin on top of two pins
 const double H_NEUTRAL_1    = 250;      // pin straight into a short neutral goal
 const double H_NEUTRAL_2    = 700;      // cup + pin on top of one pin
-const int    LIFT_SPEED     = 100;      // percent
+const int    LIFT_SPEED     = 100;      // percent: auton lift moves (motor speed control)
+const double LIFT_VOLTS     = 12.0;     // driver control lift: full voltage (12 V is the V5 maximum)
 const int    GRAB_MS        = 200;      // time for the claw to close
 const int    RELEASE_MS     = 200;      // time for the claw to open
 
@@ -1010,18 +1011,18 @@ void usercontrol(void) {
 
     // Lift: hold R1 to go up, R2 to go down, holds position when released.
     if (Controller1.ButtonR1.pressing()) {
-      Lift.spin(fwd, LIFT_SPEED * VOLTS_PER_PERCENT, volt);
+      Lift.spin(fwd, LIFT_VOLTS, volt);
     } else if (Controller1.ButtonR2.pressing()) {
-      Lift.spin(reverse, LIFT_SPEED * VOLTS_PER_PERCENT, volt);
+      Lift.spin(reverse, LIFT_VOLTS, volt);
     } else {
       Lift.stop(hold);
     }
 
-    // Claw: L1 closes it (grab), L2 opens it (let go).
+    // Claw: L1 opens it (let go), L2 closes it (grab).
     if (Controller1.ButtonL1.pressing()) {
-      setClaw(true);
-    } else if (Controller1.ButtonL2.pressing()) {
       setClaw(false);
+    } else if (Controller1.ButtonL2.pressing()) {
+      setClaw(true);
     }
 
     // Side toggles: hold A to spin both. Hold the Up arrow to spin both

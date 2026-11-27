@@ -19,7 +19,7 @@
 /*      Left stick up/down  = forward / backward                              */
 /*      Right stick L/R     = turn                                            */
 /*      R1 / R2             = lift up / down                                  */
-/*      L1 / L2             = close / open claw                               */
+/*      L1 / L2             = open / close claw                               */
 /*      A (hold)            = spin both side toggles                          */
 /*      Up arrow (hold)     = spin both side toggles the other way            */
 /*      B                   = arcade / tank controls (not on a field)         */
@@ -83,7 +83,7 @@ const int    HOLD_DELAY_MS = 250;   // wait after you stop turning before holdin
 const double VOLTS_PER_PERCENT = 12.0 / 100.0;
 
 const int TOGGLE_SPEED = 50;          // percent. Lower = slower toggles
-const int LIFT_SPEED   = 100;         // percent
+const double LIFT_VOLTS = 12.0;       // lift: full voltage (12 V is the V5 maximum)
 
 // The drivetrain is inverted: -1 flips forward/back (DRIVE_SIGN) and turning
 // (TURN_SIGN). If one of them goes the wrong way, change it back to 1.
@@ -276,18 +276,18 @@ void usercontrol(void) {
 
     // Lift: hold R1 to go up, R2 to go down, holds position when released.
     if (Controller1.ButtonR1.pressing()) {
-      Lift.spin(fwd, LIFT_SPEED * VOLTS_PER_PERCENT, volt);
+      Lift.spin(fwd, LIFT_VOLTS, volt);
     } else if (Controller1.ButtonR2.pressing()) {
-      Lift.spin(reverse, LIFT_SPEED * VOLTS_PER_PERCENT, volt);
+      Lift.spin(reverse, LIFT_VOLTS, volt);
     } else {
       Lift.stop(hold);
     }
 
-    // Claw: L1 closes it (grab), L2 opens it (let go).
+    // Claw: L1 opens it (let go), L2 closes it (grab).
     if (Controller1.ButtonL1.pressing()) {
-      setClaw(true);
-    } else if (Controller1.ButtonL2.pressing()) {
       setClaw(false);
+    } else if (Controller1.ButtonL2.pressing()) {
+      setClaw(true);
     }
 
     // Side toggles: hold A to spin both. Hold the Up arrow to spin both

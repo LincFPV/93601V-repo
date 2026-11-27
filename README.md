@@ -24,7 +24,7 @@ Each `.v5cpp` (open in VEXcode V5) has a matching `.cpp` with the same code as p
 | Side toggles (5.5W) | left 2, right 9 |
 | Claw solenoid | 3-wire A |
 
-Drive, lift and side toggles run on voltage (12 V = full power). Controls: left stick forward/back, right stick turn, R1/R2 lift up/down, L1 claw close, L2 claw open, hold A for the side toggles (hold Up to reverse them).
+Drive, lift and side toggles run on voltage (12 V = full power). Controls: left stick forward/back, right stick turn, R1/R2 lift up/down, L1 claw close, L2 claw open, hold A for the side toggles (hold Up to reverse them). For practice only, B switches to tank controls (left stick = left side, right stick = right side).
 
 None of the competition code has been tested on the robot yet; see the tuning steps at the top of `TankComp.cpp` and the to-do list in `HANDOFF.md`.
 

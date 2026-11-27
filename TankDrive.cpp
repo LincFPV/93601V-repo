@@ -21,6 +21,7 @@
 /*      L1 / L2             = close / open claw                               */
 /*      A (hold)            = spin both side toggles                          */
 /*      Up arrow (hold)     = spin both side toggles the other way            */
+/*      B                   = arcade / tank controls (not on a field)         */
 /*                                                                            */
 /*    The drivetrain is inverted in the code (DRIVE_SIGN and TURN_SIGN are    */
 /*    -1). If a direction is wrong, change that one back to 1.                */
@@ -145,15 +146,43 @@ void usercontrol(void) {
   Controller1.Screen.setCursor(1, 1);
   Controller1.Screen.print("93601V tank drive");
 
-  while (true) {
-    // Arcade: left stick up/down drives, right stick left/right turns.
-    double forward = applyDeadband(Controller1.Axis3.position());
-    double turn    = applyDeadband(Controller1.Axis1.position());
+  bool tankMode = false;          // practice only: B switches to tank controls
+  bool bWasPressed = false;
+  bool shownTank = true;          // forces the first controller-screen update
 
-    if (forward == 0 && turn == 0) {
-      stopDrive();
+  while (true) {
+    // Practice only: B switches between arcade and tank controls. On a field
+    // (field control or competition switch) it is always arcade.
+    bool onField = Competition.isFieldControl() || Competition.isCompetitionSwitch();
+    bool bPressed = Controller1.ButtonB.pressing();
+    if (bPressed && !bWasPressed && !onField) tankMode = !tankMode;
+    bWasPressed = bPressed;
+    if (onField) tankMode = false;
+    if (tankMode != shownTank) {
+      shownTank = tankMode;
+      Controller1.Screen.clearLine(3);
+      Controller1.Screen.setCursor(3, 1);
+      Controller1.Screen.print(tankMode ? "TANK controls (B)" : "ARCADE controls");
+    }
+
+    if (tankMode) {
+      // Tank: left stick drives the left side, right stick the right side.
+      double left  = applyDeadband(Controller1.Axis3.position());
+      double right = applyDeadband(Controller1.Axis2.position());
+      if (left == 0 && right == 0) {
+        stopDrive();
+      } else {
+        tankDrive((left + right) / 2, (left - right) / 2);
+      }
     } else {
-      tankDrive(forward, turn);
+      // Arcade: left stick up/down drives, right stick left/right turns.
+      double forward = applyDeadband(Controller1.Axis3.position());
+      double turn    = applyDeadband(Controller1.Axis1.position());
+      if (forward == 0 && turn == 0) {
+        stopDrive();
+      } else {
+        tankDrive(forward, turn);
+      }
     }
 
     // Lift: hold R1 to go up, R2 to go down, holds position when released.

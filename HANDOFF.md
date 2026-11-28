@@ -83,6 +83,10 @@ points it here, so it starts with the full picture. Ask it to
 
 Newest entry first. Add a line whenever something changes or gets tested.
 
+- **28 Nov 2026:** Driver-control lift slowed: 75% speed going up, 50% going
+  down (`LIFT_UP_SPEED`, `LIFT_DOWN_SPEED`), using the motors' speed control
+  instead of full voltage. Published `TankComp.v5cpp` as the GitHub release
+  "larry please flash this".
 - **27 Nov 2026:** Claw buttons swapped: L1 opens, L2 closes. Driver-control
   lift confirmed on voltage at the maximum 12 V (`LIFT_VOLTS`). The auton lift
   in `TankComp` still uses the motor's speed control at 100% (`LIFT_SPEED`).

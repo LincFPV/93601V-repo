@@ -8,7 +8,8 @@
 /*      Inertial 16, Radio: any free port   Drive geared 36:60 (motor:wheel)  */
 /*      Lift 1, 10        Side toggles: left 2, right 9 (5.5W motors)         */
 /*      Claw piston: 3-wire port A                                            */
-/*      Drive, lift and side toggles run on voltage (12 V = full power).      */
+/*      Drive and side toggles run on voltage (12 V = full power). The lift   */
+/*      runs at 75% speed going up and 50% going down.                        */
 /*                                                                            */
 /*    Driver controls:                                                        */
 /*      Left stick up/down = forward / back    Right stick X = turn           */
@@ -149,7 +150,8 @@ const double H_ALLIANCE_3   = 1150;     // cup + pin on top of two pins
 const double H_NEUTRAL_1    = 250;      // pin straight into a short neutral goal
 const double H_NEUTRAL_2    = 700;      // cup + pin on top of one pin
 const int    LIFT_SPEED     = 100;      // percent: auton lift moves (motor speed control)
-const double LIFT_VOLTS     = 12.0;     // driver control lift: full voltage (12 V is the V5 maximum)
+const double LIFT_UP_SPEED   = 75;     // driver control lift going up, percent of full speed
+const double LIFT_DOWN_SPEED = 50;     // driver control lift going down, percent of full speed
 const int    GRAB_MS        = 200;      // time for the claw to close
 const int    RELEASE_MS     = 200;      // time for the claw to open
 
@@ -1010,10 +1012,12 @@ void usercontrol(void) {
     }
 
     // Lift: hold R1 to go up, R2 to go down, holds position when released.
+    // Uses the motors' speed control (LIFT_UP_SPEED / LIFT_DOWN_SPEED), so the
+    // lift keeps its full strength but never goes faster than those speeds.
     if (Controller1.ButtonR1.pressing()) {
-      Lift.spin(fwd, LIFT_VOLTS, volt);
+      Lift.spin(fwd, LIFT_UP_SPEED, percent);
     } else if (Controller1.ButtonR2.pressing()) {
-      Lift.spin(reverse, LIFT_VOLTS, volt);
+      Lift.spin(reverse, LIFT_DOWN_SPEED, percent);
     } else {
       Lift.stop(hold);
     }

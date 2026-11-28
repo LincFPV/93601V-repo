@@ -24,7 +24,7 @@ Each `.v5cpp` (open in VEXcode V5) has a matching `.cpp` with the same code as p
 | Side toggles (5.5W) | left 2, right 9 |
 | Claw solenoid | 3-wire A |
 
-Drive, lift and side toggles run on voltage (12 V = full power). Controls: left stick forward/back, right stick turn, R1/R2 lift up/down (full 12 V), L1 claw open, L2 claw close, hold A for the side toggles (hold Up to reverse them). For practice only, B switches to tank controls (left stick = left side, right stick = right side). While you drive in arcade with the turn stick centred, a drive-straight assist uses the inertial to stop the robot drifting to one side; the Right arrow switches it on and off (`DRIVE_STRAIGHT_ASSIST` sets whether it starts on).
+Drive and side toggles run on voltage (12 V = full power). Controls: left stick forward/back, right stick turn, R1/R2 lift up (75% speed) / down (50%), L1 claw open, L2 claw close, hold A for the side toggles (hold Up to reverse them). For practice only, B switches to tank controls (left stick = left side, right stick = right side). While you drive in arcade with the turn stick centred, a drive-straight assist uses the inertial to stop the robot drifting to one side; the Right arrow switches it on and off (`DRIVE_STRAIGHT_ASSIST` sets whether it starts on).
 
 None of the competition code has been tested on the robot yet; see the tuning steps at the top of `TankComp.cpp` and the to-do list in `HANDOFF.md`.
 

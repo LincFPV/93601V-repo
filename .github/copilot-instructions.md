@@ -11,8 +11,9 @@ Nothing here has been tested on the robot unless a note says so.
 - Ports: drive left 3 (front) + 11 (back), right 8 (front) + 20 (back, right side
   reversed); inertial 16; lift 1 + 10 (2 x 11W); side toggles left 2, right 9
   (5.5W motors); claw solenoid 3-wire A. The code headers are the source of truth.
-- Drive geared 36:60 (motor:wheel). Drive, lift and toggles run on voltage
-  (`spin(..., volt)`, 100% = 12 V via `VOLTS_PER_PERCENT`).
+- Drive geared 36:60 (motor:wheel). Drive and toggles run on voltage
+  (`spin(..., volt)`, 100% = 12 V via `VOLTS_PER_PERCENT`). The driver-control
+  lift uses the motors' speed control: `LIFT_UP_SPEED` 75%, `LIFT_DOWN_SPEED` 50%.
 - Controls: left stick forward/back, right stick turn; R1/R2 lift up/down;
   L1 claw open, L2 claw close; hold A = both side toggles spin, hold Up = they
   spin the other way. B toggles tank controls (left stick = left side, right

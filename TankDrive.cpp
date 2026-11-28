@@ -12,8 +12,8 @@
 /*      Claw piston ....... 3-wire port A on the brain                        */
 /*      Radio (antenna) ... any free port (no code needed)                    */
 /*                                                                            */
-/*    Drive, lift and side toggles run on voltage (12 V = full power) for     */
-/*    more speed and punch than percent velocity.                             */
+/*    Drive and side toggles run on voltage (12 V = full power) for more      */
+/*    speed and punch. The lift runs at 75% speed going up, 50% going down.   */
 /*                                                                            */
 /*    Controls:                                                               */
 /*      Left stick up/down  = forward / backward                              */
@@ -83,7 +83,8 @@ const int    HOLD_DELAY_MS = 250;   // wait after you stop turning before holdin
 const double VOLTS_PER_PERCENT = 12.0 / 100.0;
 
 const int TOGGLE_SPEED = 50;          // percent. Lower = slower toggles
-const double LIFT_VOLTS = 12.0;       // lift: full voltage (12 V is the V5 maximum)
+const double LIFT_UP_SPEED   = 75;     // lift going up, percent of full speed
+const double LIFT_DOWN_SPEED = 50;     // lift going down, percent of full speed
 
 // The drivetrain is inverted: -1 flips forward/back (DRIVE_SIGN) and turning
 // (TURN_SIGN). If one of them goes the wrong way, change it back to 1.
@@ -275,10 +276,12 @@ void usercontrol(void) {
     }
 
     // Lift: hold R1 to go up, R2 to go down, holds position when released.
+    // Uses the motors' speed control (LIFT_UP_SPEED / LIFT_DOWN_SPEED), so the
+    // lift keeps its full strength but never goes faster than those speeds.
     if (Controller1.ButtonR1.pressing()) {
-      Lift.spin(fwd, LIFT_VOLTS, volt);
+      Lift.spin(fwd, LIFT_UP_SPEED, percent);
     } else if (Controller1.ButtonR2.pressing()) {
-      Lift.spin(reverse, LIFT_VOLTS, volt);
+      Lift.spin(reverse, LIFT_DOWN_SPEED, percent);
     } else {
       Lift.stop(hold);
     }
